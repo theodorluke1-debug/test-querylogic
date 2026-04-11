@@ -1,169 +1,678 @@
 <!DOCTYPE html>
 <html lang="de">
 <head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QueryLogic | Ghost Protocol v3.5</title>
-    <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
-    <style>
-        :root { --lime: #c8f135; --bg: #050505; --card: #0d0d0b; --border: #1a1a16; }
-        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: var(--bg); color: #e8e8e0; -webkit-font-smoothing: antialiased; }
-        .mono { font-family: 'JetBrains Mono', monospace; }
-        .glass { background: var(--card); border: 1px solid var(--border); }
-        .neon-text { color: var(--lime); text-shadow: 0 0 15px rgba(200, 241, 53, 0.3); }
-        .terminal { background: #000; border: 1px solid #1a1a16; height: 220px; overflow-y: auto; padding: 15px; font-size: 11px; color: #666; }
-        .terminal-entry { margin-bottom: 4px; border-bottom: 1px solid #0a0a0a; padding-bottom: 2px; }
-        .terminal-error { color: #ef4444; }
-        .terminal-success { color: var(--lime); }
-        .terminal-attempt { color: #3b82f6; }
-        .loader { width: 18px; height: 18px; border: 2px solid #222; border-top: 2px solid var(--lime); border-radius: 50%; animation: spin 0.8s linear infinite; display: inline-block; }
-        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
-    </style>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AuditFlow — Technisches SEO & Web Intelligence</title>
+  <meta name="description" content="B2B Technical SEO Auditor — Deep Crawl, Scoring, Reports.">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&family=JetBrains+Mono:wght@400;500;600&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            surface: '#030303',
+            accent: '#c8f135',
+            line: '#1a1a1a',
+            muted: '#7a7a72',
+          },
+          fontFamily: {
+            sans: ['Inter', 'system-ui', 'sans-serif'],
+            mono: ['JetBrains Mono', 'ui-monospace', 'monospace'],
+          },
+        },
+      },
+    };
+  </script>
+  <style>
+    :root {
+      --bg: #030303;
+      --accent: #c8f135;
+      --border: #1a1a1a;
+      --glow: rgba(200, 241, 53, 0.12);
+    }
+    body { background: var(--bg); }
+    .card-interactive {
+      transition: border-color 0.2s ease, box-shadow 0.25s ease, transform 0.2s ease;
+    }
+    .card-interactive:hover {
+      border-color: #2a2a2a;
+      box-shadow: 0 0 0 1px rgba(200, 241, 53, 0.06), 0 20px 50px -28px rgba(0, 0, 0, 0.85);
+      transform: translateY(-1px);
+    }
+    .noise-overlay {
+      pointer-events: none;
+      opacity: 0.035;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.9' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E");
+    }
+    @media print {
+      .no-print { display: none !important; }
+      body { background: #fff !important; color: #111 !important; }
+      .print-root { background: #fff !important; color: #111 !important; border-color: #ddd !important; }
+      .print-root * { color: inherit !important; border-color: #ddd !important; }
+      .print-accent { color: #3d4f00 !important; }
+    }
+  </style>
 </head>
-<body class="min-h-screen flex flex-col items-center py-12 px-4">
+<body class="min-h-screen text-neutral-200 font-sans antialiased relative">
+  <div class="noise-overlay fixed inset-0 z-0" aria-hidden="true"></div>
 
-    <div class="w-full max-w-xl">
-        <div class="mb-10 text-center">
-            <h1 class="text-3xl font-extrabold tracking-tighter uppercase italic">Query<span class="neon-text">Logic</span></h1>
-            <div class="inline-flex items-center gap-2 mt-2 px-3 py-1 border border-lime-500/20 rounded-full bg-lime-500/5">
-                <span id="statusPulse" class="w-1.5 h-1.5 rounded-full bg-zinc-700"></span>
-                <span class="text-[9px] font-mono text-zinc-500 uppercase tracking-widest">Ghost Protocol // Core v3.5</span>
-            </div>
-        </div>
-
-        <div class="glass p-8 rounded-[32px] shadow-2xl space-y-6">
-            <div class="grid grid-cols-1 gap-4">
-                <div class="space-y-1">
-                    <label class="text-[10px] uppercase font-bold text-zinc-500 ml-1">Ziel-URL</label>
-                    <input type="url" id="targetUrl" placeholder="https://apple.com" class="w-full bg-black/50 border border-[#1a1a16] p-4 rounded-2xl outline-none focus:border-lime-500/50 transition-all text-white text-sm">
-                </div>
-                <div class="space-y-1">
-                    <label class="text-[10px] uppercase font-bold text-zinc-500 ml-1">Master API Key</label>
-                    <input type="password" id="apiKey" placeholder="Gemini API Key" class="w-full bg-black/50 border border-[#1a1a16] p-4 rounded-2xl outline-none focus:border-lime-500/50 transition-all text-white text-sm">
-                </div>
-            </div>
-
-            <button id="runBtn" onclick="startGhostAudit()" class="w-full bg-[#c8f135] text-black font-black py-5 rounded-2xl hover:scale-[1.01] active:scale-[0.98] transition-all flex items-center justify-center gap-3">
-                START SCAN
-            </button>
-
-            <div class="mt-4">
-                <div id="terminal" class="terminal mono rounded-xl">
-                    <div class="terminal-entry">> System bereit. Ghost Protocol aktiv.</div>
-                </div>
-            </div>
-        </div>
-
-        <div id="results" class="hidden grid grid-cols-2 gap-4 mt-8">
-            <div class="glass p-8 rounded-[24px] text-center border-t border-lime-500/20">
-                <span class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">SEO Rating</span>
-                <div id="seoVal" class="text-5xl font-black neon-text mt-2">--</div>
-            </div>
-            <div class="glass p-8 rounded-[24px] text-center border-t border-lime-500/20">
-                <span class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Speed Score</span>
-                <div id="perfVal" class="text-5xl font-black neon-text mt-2">--</div>
-            </div>
-        </div>
+  <header class="no-print sticky top-0 z-50 border-b border-line bg-surface/90 backdrop-blur-xl">
+    <div class="max-w-6xl mx-auto px-5 h-14 flex items-center justify-between gap-4">
+      <div class="flex items-center gap-3">
+        <span class="font-semibold tracking-tight text-white">Audit<span class="text-accent not-italic">Flow</span></span>
+        <span class="hidden sm:inline text-[10px] font-mono text-muted uppercase tracking-[0.2em] border border-line rounded px-2 py-0.5">B2B SEO Intel</span>
+      </div>
+      <div class="flex items-center gap-2 text-xs font-mono text-muted">
+        <span id="authStatus" class="truncate max-w-[200px]">Nicht angemeldet</span>
+        <button type="button" id="btnAuth" class="text-accent hover:underline decoration-accent/50">Anmelden</button>
+        <button type="button" id="btnSignOut" class="hidden text-neutral-400 hover:text-white">Abmelden</button>
+      </div>
     </div>
+  </header>
 
-    <script type="module">
-        const term = document.getElementById('terminal');
-        const btn = document.getElementById('runBtn');
-        const pulse = document.getElementById('statusPulse');
+  <main class="relative z-10 max-w-6xl mx-auto px-5 py-10 print-root">
+    <section class="mb-10">
+      <p class="font-mono text-[10px] text-accent/90 uppercase tracking-[0.25em] mb-3">Technical Crawl</p>
+      <h1 class="text-3xl sm:text-4xl font-semibold text-white tracking-tight mb-2">Technisches SEO‑Audit</h1>
+      <p class="text-sm text-neutral-400 max-w-2xl leading-relaxed">Ziel‑URL analysieren, Struktur prüfen, Score erhalten — exportierbar für Kund:innen. Daten werden unter Ihrem Konto in Supabase gespeichert.</p>
+    </section>
 
-        function addLog(msg, type = 'info') {
-            const entry = document.createElement('div');
-            entry.className = `terminal-entry ${type === 'error' ? 'terminal-error' : type === 'success' ? 'terminal-success' : type === 'attempt' ? 'terminal-attempt' : ''}`;
-            entry.innerText = `> [${new Date().toLocaleTimeString()}] ${msg}`;
-            term.appendChild(entry);
-            term.scrollTop = term.scrollHeight;
+    <div class="grid lg:grid-cols-[1fr_380px] gap-8 items-start">
+      <div class="space-y-6">
+        <div class="rounded-xl border border-line bg-[#0a0a0a] p-5 card-interactive">
+          <label for="urlInput" class="block text-xs font-medium text-neutral-300 mb-2">Ziel‑URL</label>
+          <div class="flex flex-col sm:flex-row gap-3">
+            <input id="urlInput" type="url" placeholder="https://beispiel.de" autocomplete="url"
+              class="flex-1 rounded-lg border border-line bg-surface px-4 py-2.5 text-sm text-white placeholder:text-neutral-600 focus:outline-none focus:ring-2 focus:ring-accent/25 focus:border-accent/40 font-mono text-[13px]" />
+            <button type="button" id="btnCrawl"
+              class="shrink-0 rounded-lg bg-accent text-surface px-5 py-2.5 text-sm font-semibold tracking-tight hover:brightness-95 active:scale-[0.98] transition shadow-[0_0_24px_-4px_rgba(200,241,53,0.35)]">
+              Tiefen‑Scan starten
+            </button>
+          </div>
+          <p class="mt-3 text-[11px] text-neutral-500 leading-relaxed">
+            <span class="text-neutral-400">Hinweis:</span> Browser‑CORS kann externe URLs blockieren. Es wird zuerst ein Direktabruf versucht, danach ein optional konfigurierbarer Proxy (<span class="font-mono text-neutral-400">PROXY_TEMPLATE</span>). Alternativ HTML unten einfügen.
+          </p>
+          <label for="htmlFallback" class="mt-4 block text-xs font-medium text-neutral-300">HTML‑Fallback (optional)</label>
+          <textarea id="htmlFallback" rows="4" placeholder="&lt;html&gt;… Roh‑HTML einfügen wenn URL nicht erreichbar …"
+            class="mt-1 w-full rounded-lg border border-line bg-surface px-3 py-2 text-xs font-mono text-neutral-300 placeholder:text-neutral-600 focus:outline-none focus:ring-2 focus:ring-accent/20"></textarea>
+        </div>
+
+        <div id="progressPanel" class="hidden rounded-xl border border-line bg-[#0a0a0a] p-5">
+          <p class="text-xs font-mono text-accent mb-3 uppercase tracking-widest" id="progressLabel">Initialisiere…</p>
+          <ol id="progressSteps" class="space-y-2 text-sm text-neutral-400"></ol>
+        </div>
+
+        <div id="resultsPanel" class="hidden space-y-6">
+          <div class="grid sm:grid-cols-3 gap-4">
+            <div class="rounded-xl border border-line bg-[#0a0a0a] p-4 card-interactive flex flex-col items-center justify-center min-h-[160px]">
+              <p class="text-[10px] font-mono uppercase tracking-widest text-muted mb-2">Gesamt‑Score</p>
+              <div id="gaugeWrap" class="w-36 h-24"></div>
+              <p id="scoreBand" class="text-xs text-neutral-500 mt-1 text-center">—</p>
+            </div>
+            <div class="rounded-xl border border-line bg-[#0a0a0a] p-4 card-interactive sm:col-span-2">
+              <p class="text-[10px] font-mono uppercase tracking-widest text-muted mb-3">Dimensionen</p>
+              <div id="dimBars" class="space-y-3"></div>
+            </div>
+          </div>
+
+          <div class="rounded-xl border border-line bg-[#0a0a0a] overflow-hidden card-interactive">
+            <button type="button" id="btnDeepDive" class="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-white/[0.02] transition group">
+              <span>
+                <span class="block text-sm font-semibold text-white group-hover:text-accent transition-colors">Deep Dive — Rohbefunde</span>
+                <span class="text-xs text-neutral-500">Meta‑Tags, Bilder, Überschriftenbaum, Performance‑Heuristik</span>
+              </span>
+              <svg class="w-5 h-5 text-neutral-500 group-hover:text-accent transition-transform" id="deepChevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
+            </button>
+            <div id="deepDiveBody" class="hidden border-t border-line px-5 py-4 bg-surface/50 max-h-[480px] overflow-y-auto">
+              <div id="deepDiveContent" class="text-xs font-mono text-neutral-400 space-y-6"></div>
+            </div>
+          </div>
+
+          <div class="flex flex-wrap gap-3 no-print">
+            <button type="button" id="btnPrint" class="rounded-lg border border-line px-4 py-2 text-sm text-neutral-200 hover:border-neutral-600 hover:bg-white/[0.03] transition">PDF / Drucken</button>
+            <button type="button" id="btnSaveCloud" class="rounded-lg border border-accent/40 bg-accent/10 px-4 py-2 text-sm text-accent hover:bg-accent/15 transition">In Cloud speichern</button>
+          </div>
+          <p id="saveMsg" class="text-xs font-mono text-neutral-500 no-print"></p>
+        </div>
+      </div>
+
+      <aside class="rounded-xl border border-line bg-[#080808] p-5 card-interactive no-print">
+        <h2 class="text-xs font-semibold text-white uppercase tracking-wider mb-4">Supabase</h2>
+        <p class="text-[11px] text-neutral-500 mb-4 leading-relaxed">Tragen Sie URL und Anon‑Key ein (oder per Umgebung später injizieren). Tabelle <span class="font-mono text-neutral-400">audits</span> mit RLS.</p>
+        <label class="block text-[10px] font-mono text-muted uppercase mb-1">SUPABASE_URL</label>
+        <input id="cfgUrl" type="text" class="w-full rounded border border-line bg-surface px-2 py-1.5 text-xs font-mono mb-3" placeholder="https://xxx.supabase.co" />
+        <label class="block text-[10px] font-mono text-muted uppercase mb-1">SUPABASE_ANON_KEY</label>
+        <input id="cfgKey" type="password" class="w-full rounded border border-line bg-surface px-2 py-1.5 text-xs font-mono mb-3" />
+        <button type="button" id="btnInitSb" class="w-full rounded-lg bg-white/5 border border-line py-2 text-xs font-medium hover:bg-white/[0.08] transition">Client initialisieren</button>
+        <p id="sbMsg" class="mt-3 text-[11px] font-mono text-neutral-500 break-all"></p>
+        <hr class="my-4 border-line">
+        <h3 class="text-[10px] font-mono text-muted uppercase mb-2">Letzte Scans</h3>
+        <ul id="historyList" class="space-y-2 max-h-48 overflow-y-auto text-[11px] font-mono text-neutral-500"></ul>
+      </aside>
+    </div>
+  </main>
+
+  <!-- Supabase v2 UMD -->
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"></script>
+  <script>
+    /**
+     * Supabase: create table (run in SQL editor):
+     *
+     * create table public.audits (
+     *   id uuid primary key default gen_random_uuid(),
+     *   user_id uuid not null references auth.users (id) on delete cascade,
+     *   url text not null,
+     *   score integer,
+     *   result_json jsonb not null default '{}'::jsonb,
+     *   created_at timestamptz not null default now()
+     * );
+     * create index audits_user_created on public.audits (user_id, created_at desc);
+     * alter table public.audits enable row level security;
+     * create policy "audits_select_own" on public.audits for select using (auth.uid() = user_id);
+     * create policy "audits_insert_own" on public.audits for insert with check (auth.uid() = user_id);
+     */
+
+    // --- Config: swap for Edge Function URL pattern in production ---
+    const CONFIG = {
+      /** Replace {url} with encoded target, e.g. https://worker.dev/fetch?u={url} */
+      PROXY_TEMPLATE: null,
+      USE_PUBLIC_CORS_BRIDGE: true,
+    };
+
+    let supabaseClient = null;
+    let currentUser = null;
+    let lastAuditPayload = null;
+
+    const $ = (id) => document.getElementById(id);
+
+    function loadLocalConfig() {
+      $('cfgUrl').value = localStorage.getItem('af_sb_url') || '';
+      $('cfgKey').value = localStorage.getItem('af_sb_key') || '';
+    }
+
+    function persistLocalConfig() {
+      localStorage.setItem('af_sb_url', $('cfgUrl').value.trim());
+      localStorage.setItem('af_sb_key', $('cfgKey').value.trim());
+    }
+
+    /**
+     * Initialize Supabase client. Call after URL + anon key are set.
+     */
+    function initSupabase() {
+      persistLocalConfig();
+      const url = $('cfgUrl').value.trim();
+      const key = $('cfgKey').value.trim();
+      if (!url || !key) {
+        $('sbMsg').textContent = 'URL und Anon‑Key erforderlich.';
+        return null;
+      }
+      if (!window.supabase || !window.supabase.createClient) {
+        $('sbMsg').textContent = 'Supabase SDK nicht geladen.';
+        return null;
+      }
+      supabaseClient = window.supabase.createClient(url, key, {
+        auth: { persistSession: true, autoRefreshToken: true },
+      });
+      $('sbMsg').textContent = 'Client bereit.';
+      bindAuth();
+      refreshSession();
+      return supabaseClient;
+    }
+
+    async function refreshSession() {
+      if (!supabaseClient) return;
+      const { data: { session } } = await supabaseClient.auth.getSession();
+      currentUser = session?.user ?? null;
+      updateAuthUi();
+      if (currentUser) loadHistoryPreview();
+    }
+
+    function updateAuthUi() {
+      const st = $('authStatus');
+      const out = $('btnSignOut');
+      const inn = $('btnAuth');
+      if (currentUser) {
+        st.textContent = currentUser.email || currentUser.id;
+        out.classList.remove('hidden');
+        inn.textContent = 'Konto';
+      } else {
+        st.textContent = 'Nicht angemeldet';
+        out.classList.add('hidden');
+        inn.textContent = 'Anmelden';
+      }
+    }
+
+    function bindAuth() {
+      if (!supabaseClient || supabaseClient.__af_bound) return;
+      supabaseClient.__af_bound = true;
+      supabaseClient.auth.onAuthStateChange((_e, session) => {
+        currentUser = session?.user ?? null;
+        updateAuthUi();
+        if (currentUser) loadHistoryPreview();
+      });
+    }
+
+    async function promptLogin() {
+      if (!supabaseClient) {
+        initSupabase();
+        if (!supabaseClient) return;
+      }
+      const email = window.prompt('E‑Mail für Magic Link:');
+      if (!email) return;
+      const { error } = await supabaseClient.auth.signInWithOtp({
+        email: email.trim(),
+        options: { emailRedirectTo: window.location.origin + window.location.pathname },
+      });
+      if (error) {
+        alert('Auth: ' + error.message);
+        return;
+      }
+      alert('Link gesendet — Postfach prüfen.');
+    }
+
+    async function signOut() {
+      if (!supabaseClient) return;
+      await supabaseClient.auth.signOut();
+      currentUser = null;
+      updateAuthUi();
+      $('historyList').innerHTML = '';
+    }
+
+    /**
+     * Persist audit row for authenticated user.
+     * @param {object} row — { url, score, result_json }
+     */
+    async function saveAudit(row) {
+      if (!supabaseClient) initSupabase();
+      if (!supabaseClient) throw new Error('Supabase nicht initialisiert');
+      const { data: { user } } = await supabaseClient.auth.getUser();
+      if (!user) throw new Error('Bitte zuerst anmelden, um Scans zu speichern.');
+      const payload = {
+        user_id: user.id,
+        url: row.url,
+        score: Math.round(row.score),
+        result_json: row.result_json,
+      };
+      const { data, error } = await supabaseClient.from('audits').insert(payload).select('id').single();
+      if (error) throw error;
+      return data;
+    }
+
+    async function loadHistoryPreview() {
+      if (!supabaseClient || !currentUser) return;
+      const { data, error } = await supabaseClient
+        .from('audits')
+        .select('id, url, score, created_at')
+        .order('created_at', { ascending: false })
+        .limit(8);
+      const ul = $('historyList');
+      ul.innerHTML = '';
+      if (error) {
+        ul.innerHTML = `<li class="text-red-400/80">${error.message}</li>`;
+        return;
+      }
+      if (!data?.length) {
+        ul.innerHTML = '<li>Keine Einträge</li>';
+        return;
+      }
+      data.forEach((r) => {
+        const li = document.createElement('li');
+        li.className = 'truncate border-b border-line/60 pb-1';
+        li.textContent = `${r.score ?? '—'} · ${r.url}`;
+        li.title = r.url;
+        ul.appendChild(li);
+      });
+    }
+
+    // --- Fetch pipeline (proxy-ready) ---
+
+    async function fetchHtmlRaw(targetUrl) {
+      const headers = { Accept: 'text/html,application/xhtml+xml' };
+      try {
+        const res = await fetch(targetUrl, { method: 'GET', mode: 'cors', credentials: 'omit', headers });
+        if (res.ok) return { html: await res.text(), via: 'direct' };
+      } catch (_) { /* CORS or network */ }
+
+      if (CONFIG.PROXY_TEMPLATE) {
+        const proxyUrl = CONFIG.PROXY_TEMPLATE.replace('{url}', encodeURIComponent(targetUrl));
+        const res = await fetch(proxyUrl, { credentials: 'omit' });
+        if (!res.ok) throw new Error('Proxy HTTP ' + res.status);
+        const txt = await res.text();
+        return { html: txt, via: 'custom-proxy' };
+      }
+
+      if (CONFIG.USE_PUBLIC_CORS_BRIDGE) {
+        const bridge = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
+        const res = await fetch(bridge);
+        if (!res.ok) throw new Error('Bridge HTTP ' + res.status);
+        const j = await res.json();
+        if (!j.contents) throw new Error('Bridge: leere Antwort');
+        return { html: j.contents, via: 'cors-bridge' };
+      }
+
+      throw new Error('URL nicht abrufbar (CORS). HTML‑Fallback nutzen oder Proxy setzen.');
+    }
+
+    // --- Crawl sequence: meta → images/alt → headings → perf heuristics ---
+
+    function parseHtmlDocument(html, pageUrl) {
+      const parser = new DOMParser();
+      const doc = parser.parseFromString(html, 'text/html');
+      const steps = [];
+      const findings = { meta: [], images: [], headings: [], performance: [], structure: [] };
+
+      // Step A: Meta & head
+      const titleEl = doc.querySelector('title');
+      const title = titleEl?.textContent?.trim() || '';
+      const metas = [...doc.querySelectorAll('meta')];
+      const getMeta = (name, attr = 'name') =>
+        metas.find((m) => (m.getAttribute(attr) || '').toLowerCase() === name.toLowerCase())?.getAttribute('content')?.trim();
+
+      const desc = getMeta('description') || getMeta('og:description', 'property');
+      const viewport = getMeta('viewport');
+      const robots = getMeta('robots');
+      const canonical = doc.querySelector('link[rel="canonical"]')?.getAttribute('href')?.trim();
+      const ogTitle = getMeta('og:title', 'property');
+
+      if (!title) findings.meta.push({ level: 'error', msg: 'Fehlender <title>' });
+      else if (title.length < 15) findings.meta.push({ level: 'warn', msg: `Titel sehr kurz (${title.length} Zeichen)` });
+      else if (title.length > 70) findings.meta.push({ level: 'warn', msg: `Titel lang — SERP‑Kürzung möglich (${title.length})` });
+      else findings.meta.push({ level: 'ok', msg: `Titel OK (${title.length} Zeichen)` });
+
+      if (!desc) findings.meta.push({ level: 'error', msg: 'Fehlende Meta‑Description' });
+      else if (desc.length < 80) findings.meta.push({ level: 'warn', msg: `Description kurz (${desc.length})` });
+      else if (desc.length > 200) findings.meta.push({ level: 'warn', msg: `Description sehr lang (${desc.length})` });
+      else findings.meta.push({ level: 'ok', msg: `Description OK (${desc.length})` });
+
+      if (!viewport) findings.meta.push({ level: 'warn', msg: 'Kein viewport — Mobile SEO leidet' });
+      else findings.meta.push({ level: 'ok', msg: 'Viewport gesetzt' });
+
+      if (robots && /noindex/i.test(robots)) findings.meta.push({ level: 'warn', msg: 'robots enthält noindex' });
+      if (canonical) findings.meta.push({ level: 'ok', msg: `Canonical: ${canonical}` });
+      else findings.meta.push({ level: 'warn', msg: 'Kein rel=canonical' });
+
+      if (ogTitle || getMeta('og:image', 'property')) findings.meta.push({ level: 'ok', msg: 'Open Graph teilweise vorhanden' });
+      else findings.meta.push({ level: 'warn', msg: 'Open Graph unvollständig' });
+
+      const charsetMeta = doc.querySelector('meta[charset]')?.getAttribute('charset')
+        || metas.find((m) => (m.getAttribute('http-equiv') || '').toLowerCase() === 'content-type')?.getAttribute('content');
+      if (charsetMeta && /utf-8/i.test(charsetMeta)) findings.meta.push({ level: 'ok', msg: 'Zeichencodierung UTF‑8' });
+      else findings.meta.push({ level: 'warn', msg: 'Charset / UTF‑8 nicht eindeutig' });
+
+      steps.push({ id: 'meta', label: 'Meta‑Tags & SERP‑Signale', ok: findings.meta.every((f) => f.level !== 'error') });
+
+      // Step B: Images / alt
+      const imgs = [...doc.querySelectorAll('img')];
+      let missingAlt = 0;
+      let emptyAltDecorative = 0;
+      imgs.forEach((img) => {
+        if (!img.hasAttribute('alt')) missingAlt++;
+        else if (img.getAttribute('alt') === '') emptyAltDecorative++;
+      });
+      if (missingAlt) findings.images.push({ level: 'error', msg: `${missingAlt} Bild(er) ohne alt` });
+      if (emptyAltDecorative) findings.images.push({ level: 'ok', msg: `${emptyAltDecorative} Bild(er) mit alt="" (dekorativ)` });
+      if (!imgs.length) findings.images.push({ level: 'warn', msg: 'Keine <img> im Dokument' });
+      else if (!missingAlt) findings.images.push({ level: 'ok', msg: 'Alle img haben alt‑Attribut' });
+
+      steps.push({ id: 'img', label: 'Alt‑Texte & Bild‑SEO', ok: missingAlt === 0 });
+
+      // Step C: Heading hierarchy (document order)
+      const headingSel = 'h1, h2, h3, h4, h5, h6';
+      const hNodes = [...doc.querySelectorAll(headingSel)];
+      const levels = hNodes.map((el) => ({ tag: el.tagName.toLowerCase(), level: +el.tagName[1], text: el.textContent.trim().slice(0, 120) }));
+
+      const h1s = levels.filter((h) => h.level === 1);
+      if (h1s.length === 0) findings.headings.push({ level: 'error', msg: 'Kein H1' });
+      else if (h1s.length > 1) findings.headings.push({ level: 'warn', msg: `${h1s.length} H1 — besser genau eines` });
+      else findings.headings.push({ level: 'ok', msg: 'Genau ein H1' });
+
+      let prev = 0;
+      let skip = false;
+      for (const h of levels) {
+        if (prev === 0) {
+          if (h.level !== 1) {
+            findings.headings.push({ level: 'warn', msg: `Erste Überschrift ist ${h.tag.toUpperCase()}, nicht H1` });
+            skip = true;
+          }
+        } else if (h.level > prev + 1) {
+          findings.headings.push({ level: 'warn', msg: `Ebenen‑Sprung: ${prev} → ${h.level} („${h.text}“)` });
+          skip = true;
         }
+        prev = h.level;
+      }
+      if (!skip && levels.length) findings.headings.push({ level: 'ok', msg: 'Keine großen Ebenen‑Sprünge erkannt' });
 
-        async function startGhostAudit() {
-            const url = document.getElementById('targetUrl').value.trim();
-            const key = document.getElementById('apiKey').value.trim();
+      steps.push({ id: 'head', label: 'Überschriften‑Hierarchie', ok: !findings.headings.some((f) => f.level === 'error') });
 
-            if (!url || !key) {
-                addLog("Fehler: Daten unvollständig.", "error");
-                return;
-            }
+      // Step D: Performance heuristics (static)
+      const scripts = doc.querySelectorAll('script[src]').length;
+      const inlineScripts = [...doc.querySelectorAll('script:not([src])')].reduce((n, s) => n + (s.textContent?.length || 0), 0);
+      const styles = doc.querySelectorAll('link[rel="stylesheet"]').length;
+      if (scripts > 25) findings.performance.push({ level: 'warn', msg: `Viele externe Skripte (${scripts})` });
+      else findings.performance.push({ level: 'ok', msg: `Externe Skripte: ${scripts}` });
+      if (inlineScripts > 8000) findings.performance.push({ level: 'warn', msg: 'Große Inline‑Skripte' });
+      if (styles > 12) findings.performance.push({ level: 'warn', msg: `Viele CSS‑Dateien (${styles})` });
+      else findings.performance.push({ level: 'ok', msg: `Stylesheets: ${styles}` });
 
-            btn.disabled = true;
-            btn.innerHTML = '<span class="loader"></span> SCANNING...';
-            pulse.className = "w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse";
-            
-            // Umfassende Liste von Modell-Strings, die Google aktuell akzeptiert
-            const modelPaths = [
-                "gemini-1.5-flash-latest",
-                "gemini-1.5-flash",
-                "gemini-1.5-pro",
-                "gemini-1.0-pro",
-                "gemini-pro"
-            ];
+      steps.push({ id: 'perf', label: 'Performance‑Heuristik (HTML)', ok: true });
 
-            let success = false;
+      // Structure: html lang, main landmark
+      const htmlLang = doc.documentElement.getAttribute('lang');
+      if (!htmlLang) findings.structure.push({ level: 'warn', msg: 'html[lang] fehlt' });
+      else findings.structure.push({ level: 'ok', msg: `lang="${htmlLang}"` });
+      if (!doc.querySelector('main')) findings.structure.push({ level: 'warn', msg: 'Kein <main> Landmark' });
+      else findings.structure.push({ level: 'ok', msg: '<main> vorhanden' });
 
-            for (const mId of modelPaths) {
-                if (success) break;
-                addLog(`Checking Route: ${mId}...`, "attempt");
+      steps.push({ id: 'struct', label: 'Dokumentstruktur', ok: true });
 
-                try {
-                    // Wir versuchen v1 UND v1beta dynamisch
-                    const versions = ['v1', 'v1beta'];
-                    
-                    for (const ver of versions) {
-                        if (success) break;
-                        
-                        const endpoint = `https://generativelanguage.googleapis.com/${ver}/models/${mId}:generateContent?key=${key}`;
-                        
-                        try {
-                            const response = await fetch(endpoint, {
-                                method: 'POST',
-                                headers: { 'Content-Type': 'application/json' },
-                                body: JSON.stringify({
-                                    contents: [{ parts: [{ text: `Analysiere ${url}. Gib NUR JSON zurück: {"seo": 0-100, "perf": 0-100}` }] }]
-                                })
-                            });
+      return { doc, findings, steps, stats: { titleLen: title.length, descLen: desc?.length || 0, imgCount: imgs.length, missingAlt, headingCount: levels.length, scripts, styles } };
+    }
 
-                            const data = await response.json();
+    function scoreAudit(findings) {
+      const weights = { seo: 0.45, perf: 0.28, struct: 0.27 };
+      function bucketScore(items) {
+        if (!items.length) return 70;
+        let s = 100;
+        items.forEach((f) => {
+          if (f.level === 'error') s -= 22;
+          else if (f.level === 'warn') s -= 9;
+        });
+        return Math.max(0, Math.min(100, s));
+      }
 
-                            if (response.ok) {
-                                const rawText = data.candidates[0].content.parts[0].text;
-                                const json = JSON.parse(rawText.match(/\{.*\}/s)[0]);
-                                
-                                document.getElementById('seoVal').innerText = json.seo;
-                                document.getElementById('perfVal').innerText = json.perf;
-                                document.getElementById('results').classList.remove('hidden');
+      const seoScore = bucketScore([...findings.meta, ...findings.images, ...findings.headings]);
+      const perfScore = bucketScore(findings.performance);
+      const structScore = bucketScore(findings.structure);
 
-                                addLog(`ERFOLG! Aktive Route gefunden: ${ver}/${mId}`, "success");
-                                pulse.className = "w-1.5 h-1.5 rounded-full bg-[#c8f135]";
-                                success = true;
-                            } else {
-                                if (data.error?.message?.includes("429")) {
-                                    addLog(`Quota für ${mId} erschöpft.`, "error");
-                                    break; // Nächstes Modell versuchen
-                                }
-                            }
-                        } catch (e) {
-                            // Stiller Fail für einzelne Versionen
-                        }
-                    }
-                } catch (err) {
-                    addLog(`Route ${mId} instabil.`, "error");
-                }
-            }
+      const total = Math.round(seoScore * weights.seo + perfScore * weights.perf + structScore * weights.struct);
+      return {
+        total,
+        dimensions: {
+          seo: Math.round(seoScore),
+          performance: Math.round(perfScore),
+          structure: Math.round(structScore),
+        },
+      };
+    }
 
-            if (!success) {
-                addLog("KRITISCH: Kein Modell reagiert. Check Key oder Quota.", "error");
-                pulse.className = "w-1.5 h-1.5 rounded-full bg-red-600";
-            }
+    function renderGauge(score) {
+      const w = 144;
+      const h = 88;
+      const cx = w / 2;
+      const cy = h - 8;
+      const r = 56;
+      const minA = Math.PI;
+      const maxA = 2 * Math.PI;
+      const t = score / 100;
+      const angle = minA + t * (maxA - minA);
+      const x = cx + r * Math.cos(angle);
+      const y = cy + r * Math.sin(angle);
+      const col = score >= 75 ? '#c8f135' : score >= 50 ? '#d4a017' : '#c45c5c';
+      $('gaugeWrap').innerHTML = `
+        <svg width="${w}" height="${h}" viewBox="0 0 ${w} ${h}" aria-label="Score ${score}">
+          <path d="M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${cx + r} ${cy}" fill="none" stroke="#1a1a1a" stroke-width="8" stroke-linecap="round"/>
+          <path d="M ${cx - r} ${cy} A ${r} ${r} 0 0 1 ${x} ${y}" fill="none" stroke="${col}" stroke-width="8" stroke-linecap="round"/>
+          <text x="${cx}" y="${cy - 4}" text-anchor="middle" fill="#fafafa" font-size="22" font-family="JetBrains Mono, monospace" font-weight="600">${score}</text>
+        </svg>`;
+      let band = 'Kritisch';
+      if (score >= 85) band = 'Exzellent — Enterprise‑Niveau';
+      else if (score >= 70) band = 'Stark — Feintuning möglich';
+      else if (score >= 50) band = 'Solide — Priorisierte Fixes';
+      $('scoreBand').textContent = band;
+    }
 
-            btn.disabled = false;
-            btn.innerHTML = 'START SCAN';
+    function renderDimBars(dims) {
+      const rows = [
+        { k: 'seo', label: 'SEO & Content‑Signale' },
+        { k: 'performance', label: 'Performance (Heuristik)' },
+        { k: 'structure', label: 'Struktur & Semantik' },
+      ];
+      $('dimBars').innerHTML = rows.map(({ k, label }) => {
+        const v = dims[k];
+        return `<div>
+            <div class="flex justify-between text-[11px] font-mono text-neutral-400 mb-1"><span>${label}</span><span class="text-accent">${v}</span></div>
+            <div class="h-1.5 rounded-full bg-line overflow-hidden">
+              <div class="h-full rounded-full bg-accent/90 transition-all duration-700" style="width:${v}%"></div>
+            </div>
+          </div>`;
+      }).join('');
+    }
+
+    function renderDeepDive(findings, stats, via) {
+      const block = (title, items) => {
+        if (!items.length) return `<div><p class="text-neutral-500 mb-1">${title}</p><p>—</p></div>`;
+        const lis = items.map((i) => `<li class="mb-1 ${i.level === 'error' ? 'text-red-300' : i.level === 'warn' ? 'text-amber-200/90' : 'text-emerald-300/90'}">${i.msg}</li>`).join('');
+        return `<div><p class="text-white font-semibold mb-2 text-[11px] uppercase tracking-wider">${title}</p><ul class="list-disc pl-4 space-y-0.5">${lis}</ul></div>`;
+      };
+      $('deepDiveContent').innerHTML = `
+        <p class="text-neutral-500 mb-2">Abruf: <span class="text-neutral-300">${via}</span></p>
+        <div class="grid sm:grid-cols-2 gap-4 text-[11px] font-mono text-neutral-400">
+          <div>Titel Länge: ${stats.titleLen}</div>
+          <div>Description Länge: ${stats.descLen}</div>
+          <div>Bilder: ${stats.imgCount}</div>
+          <div>Ohne alt: ${stats.missingAlt}</div>
+          <div>Überschriften: ${stats.headingCount}</div>
+          <div>Ext. Skripte / CSS: ${stats.scripts} / ${stats.styles}</div>
+        </div>
+        ${block('Meta & SERP', findings.meta)}
+        ${block('Bilder', findings.images)}
+        ${block('Überschriften', findings.headings)}
+        ${block('Performance', findings.performance)}
+        ${block('Struktur', findings.structure)}
+      `;
+    }
+
+    async function runCrawlSequence() {
+      const rawUrl = $('urlInput').value.trim();
+      const fallback = $('htmlFallback').value.trim();
+      $('progressPanel').classList.remove('hidden');
+      $('resultsPanel').classList.add('hidden');
+      const ol = $('progressSteps');
+      ol.innerHTML = '';
+      $('progressLabel').textContent = 'Crawl‑Pipeline…';
+
+      let html = '';
+      let pageUrl = rawUrl || 'inline://pasted-html';
+      let via = 'inline';
+
+      if (fallback) {
+        html = fallback;
+        via = 'html-fallback';
+        pushStep(ol, 'HTML‑Fallback geladen', true);
+      } else if (rawUrl) {
+        try {
+          pushStep(ol, 'Ressource wird abgerufen (Direkt / Proxy)…', true);
+          const got = await fetchHtmlRaw(rawUrl);
+          html = got.html;
+          via = got.via;
+          pushStep(ol, `Antwort erhalten (${via})`, true);
+        } catch (e) {
+          pushStep(ol, String(e.message || e), false);
+          $('progressLabel').textContent = 'Abbruch';
+          return;
         }
+      } else {
+        pushStep(ol, 'Bitte URL oder HTML angeben.', false);
+        return;
+      }
 
-        window.startGhostAudit = startGhostAudit;
-    </script>
+      pushStep(ol, 'Schritt 1: Meta‑Tags & SERP‑Signale', true);
+      pushStep(ol, 'Schritt 2: Alt‑Texte & Bild‑SEO', true);
+      pushStep(ol, 'Schritt 3: Überschriften‑Hierarchie', true);
+      pushStep(ol, 'Schritt 4: Performance‑Heuristik', true);
+      pushStep(ol, 'Schritt 5: Struktur & Semantik', true);
+
+      const { findings, steps, stats } = parseHtmlDocument(html, pageUrl);
+      const { total, dimensions } = scoreAudit(findings);
+
+      lastAuditPayload = {
+        url: pageUrl,
+        score: total,
+        result_json: {
+          version: 1,
+          via,
+          dimensions,
+          findings,
+          stats,
+          steps: steps.map((s) => ({ id: s.id, label: s.label, ok: s.ok })),
+          scannedAt: new Date().toISOString(),
+        },
+      };
+
+      $('resultsPanel').classList.remove('hidden');
+      renderGauge(total);
+      renderDimBars(dimensions);
+      renderDeepDive(findings, stats, via);
+      $('saveMsg').textContent = '';
+      $('progressLabel').textContent = 'Scan abgeschlossen';
+    }
+
+    function pushStep(ol, text, ok) {
+      const li = document.createElement('li');
+      li.className = 'flex items-start gap-2 ' + (ok ? 'text-neutral-300' : 'text-red-400');
+      li.innerHTML = `<span class="mt-0.5">${ok ? '✓' : '✕'}</span><span>${text}</span>`;
+      ol.appendChild(li);
+    }
+
+    // --- Events ---
+
+    $('btnInitSb').addEventListener('click', () => initSupabase());
+    $('btnAuth').addEventListener('click', () => promptLogin());
+    $('btnSignOut').addEventListener('click', () => signOut());
+    $('btnCrawl').addEventListener('click', () => runCrawlSequence());
+
+    $('btnDeepDive').addEventListener('click', () => {
+      const body = $('deepDiveBody');
+      const collapsedAfter = body.classList.toggle('hidden');
+      $('deepChevron').style.transform = collapsedAfter ? '' : 'rotate(180deg)';
+    });
+
+    $('btnPrint').addEventListener('click', () => window.print());
+
+    $('btnSaveCloud').addEventListener('click', async () => {
+      $('saveMsg').textContent = '';
+      if (!lastAuditPayload) {
+        $('saveMsg').textContent = 'Kein Scan vorhanden.';
+        return;
+      }
+      try {
+        const row = await saveAudit(lastAuditPayload);
+        $('saveMsg').textContent = 'Gespeichert — ID: ' + (row?.id || 'ok');
+        loadHistoryPreview();
+      } catch (e) {
+        $('saveMsg').textContent = 'Fehler: ' + (e.message || e);
+      }
+    });
+
+    loadLocalConfig();
+    if ($('cfgUrl').value && $('cfgKey').value) initSupabase();
+
+    /** Public hooks for future Gemini / modules */
+    window.AuditFlow = { initSupabase, saveAudit, runCrawl: runCrawlSequence };
+  </script>
 </body>
 </html>
