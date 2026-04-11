@@ -94,7 +94,7 @@
             </button>
           </div>
           <p class="mt-3 text-[11px] text-neutral-500 leading-relaxed">
-            <span class="text-neutral-400">Hinweis:</span> Browser‑CORS kann externe URLs blockieren. Es wird zuerst ein Direktabruf versucht, danach ein optional konfigurierbarer Proxy (<span class="font-mono text-neutral-400">PROXY_TEMPLATE</span>). Alternativ HTML unten einfügen.
+            <span class="text-neutral-400">Hinweis:</span> Bei externen Domains greift ggf. ein CORS‑Bridge — die gemessene <span class="text-neutral-400">Ladezeit</span> enthält dann auch die Bridge‑Latenz. Für exakte Werte: HTML einfügen oder später eigene Edge‑Function.
           </p>
           <label for="htmlFallback" class="mt-4 block text-xs font-medium text-neutral-300">HTML‑Fallback (optional)</label>
           <textarea id="htmlFallback" rows="4" placeholder="&lt;html&gt;… Roh‑HTML einfügen wenn URL nicht erreichbar …"
@@ -119,15 +119,21 @@
             </div>
           </div>
 
+          <div id="priorityPanel" class="rounded-xl border border-accent/20 bg-accent/[0.04] p-5 card-interactive">
+            <p class="text-[10px] font-mono uppercase tracking-widest text-accent mb-2">Priorisierte Maßnahmen</p>
+            <p class="text-xs text-neutral-500 mb-3">Automatisch aus Befunden (Fehler &amp; Warnungen), höchste Dringlichkeit oben.</p>
+            <ol id="priorityList" class="list-decimal list-inside space-y-2 text-sm text-neutral-300"></ol>
+          </div>
+
           <div class="rounded-xl border border-line bg-[#0a0a0a] overflow-hidden card-interactive">
             <button type="button" id="btnDeepDive" class="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-white/[0.02] transition group">
               <span>
                 <span class="block text-sm font-semibold text-white group-hover:text-accent transition-colors">Deep Dive — Rohbefunde</span>
-                <span class="text-xs text-neutral-500">Meta‑Tags, Bilder, Überschriftenbaum, Performance‑Heuristik</span>
+                <span class="text-xs text-neutral-500">Ladezeit, SEO‑Tiefe, UX/IA, Design‑Signale, Sicherheit, Rohdaten</span>
               </span>
               <svg class="w-5 h-5 text-neutral-500 group-hover:text-accent transition-transform" id="deepChevron" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><path d="M6 9l6 6 6-6"/></svg>
             </button>
-            <div id="deepDiveBody" class="hidden border-t border-line px-5 py-4 bg-surface/50 max-h-[480px] overflow-y-auto">
+            <div id="deepDiveBody" class="hidden border-t border-line px-5 py-4 bg-surface/50 max-h-[min(72vh,720px)] overflow-y-auto">
               <div id="deepDiveContent" class="text-xs font-mono text-neutral-400 space-y-6"></div>
             </div>
           </div>
@@ -142,13 +148,9 @@
 
       <aside class="rounded-xl border border-line bg-[#080808] p-5 card-interactive no-print">
         <h2 class="text-xs font-semibold text-white uppercase tracking-wider mb-4">Supabase</h2>
-        <p class="text-[11px] text-neutral-500 mb-4 leading-relaxed">Tragen Sie URL und Anon‑Key ein (oder per Umgebung später injizieren). Tabelle <span class="font-mono text-neutral-400">audits</span> mit RLS.</p>
-        <label class="block text-[10px] font-mono text-muted uppercase mb-1">SUPABASE_URL</label>
-        <input id="cfgUrl" type="text" class="w-full rounded border border-line bg-surface px-2 py-1.5 text-xs font-mono mb-3" placeholder="https://xxx.supabase.co" />
-        <label class="block text-[10px] font-mono text-muted uppercase mb-1">SUPABASE_ANON_KEY</label>
-        <input id="cfgKey" type="password" class="w-full rounded border border-line bg-surface px-2 py-1.5 text-xs font-mono mb-3" />
-        <button type="button" id="btnInitSb" class="w-full rounded-lg bg-white/5 border border-line py-2 text-xs font-medium hover:bg-white/[0.08] transition">Client initialisieren</button>
-        <p id="sbMsg" class="mt-3 text-[11px] font-mono text-neutral-500 break-all"></p>
+        <p class="text-[11px] text-neutral-500 mb-3 leading-relaxed">Fest mit Projekt verbunden. Scans in <span class="font-mono text-neutral-400">audits</span> (RLS, nur angemeldete Nutzer:innen).</p>
+        <p class="text-[10px] font-mono text-neutral-600 break-all mb-4" id="sbProjectHint">hqzudwrvfwucwijiztlt.supabase.co</p>
+        <p id="sbMsg" class="text-[11px] font-mono text-neutral-500 break-all mb-4"></p>
         <hr class="my-4 border-line">
         <h3 class="text-[10px] font-mono text-muted uppercase mb-2">Letzte Scans</h3>
         <ul id="historyList" class="space-y-2 max-h-48 overflow-y-auto text-[11px] font-mono text-neutral-500"></ul>
@@ -176,12 +178,14 @@
      * create policy "audits_insert_own" on public.audits for insert with check (auth.uid() = user_id);
      */
 
-    // --- Config: swap for Edge Function URL pattern in production ---
     const CONFIG = {
-      /** Replace {url} with encoded target, e.g. https://worker.dev/fetch?u={url} */
       PROXY_TEMPLATE: null,
       USE_PUBLIC_CORS_BRIDGE: true,
     };
+
+    /** Fixed project (publishable key — protect with RLS in Supabase). */
+    const SUPABASE_URL = 'https://hqzudwrvfwucwijiztlt.supabase.co';
+    const SUPABASE_ANON_KEY = 'sb_publishable_xbdT5jumnRVp4KdZs3nI0w_QvzwV172';
 
     let supabaseClient = null;
     let currentUser = null;
@@ -189,35 +193,18 @@
 
     const $ = (id) => document.getElementById(id);
 
-    function loadLocalConfig() {
-      $('cfgUrl').value = localStorage.getItem('af_sb_url') || '';
-      $('cfgKey').value = localStorage.getItem('af_sb_key') || '';
-    }
-
-    function persistLocalConfig() {
-      localStorage.setItem('af_sb_url', $('cfgUrl').value.trim());
-      localStorage.setItem('af_sb_key', $('cfgKey').value.trim());
-    }
-
     /**
-     * Initialize Supabase client. Call after URL + anon key are set.
+     * Initialize Supabase client (embedded credentials).
      */
     function initSupabase() {
-      persistLocalConfig();
-      const url = $('cfgUrl').value.trim();
-      const key = $('cfgKey').value.trim();
-      if (!url || !key) {
-        $('sbMsg').textContent = 'URL und Anon‑Key erforderlich.';
-        return null;
-      }
       if (!window.supabase || !window.supabase.createClient) {
         $('sbMsg').textContent = 'Supabase SDK nicht geladen.';
         return null;
       }
-      supabaseClient = window.supabase.createClient(url, key, {
+      supabaseClient = window.supabase.createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
         auth: { persistSession: true, autoRefreshToken: true },
       });
-      $('sbMsg').textContent = 'Client bereit.';
+      $('sbMsg').textContent = 'Client aktiv.';
       bindAuth();
       refreshSession();
       return supabaseClient;
@@ -328,42 +315,79 @@
       });
     }
 
-    // --- Fetch pipeline (proxy-ready) ---
+    // --- Fetch pipeline (proxy-ready) + network timings ---
 
     async function fetchHtmlRaw(targetUrl) {
       const headers = { Accept: 'text/html,application/xhtml+xml' };
+
+      const pack = (html, via, t0, tHeaders, tDone, status, note) => ({
+        html,
+        via,
+        timings: {
+          phase: 'network',
+          httpStatus: status,
+          ttfbMs: Math.round(tHeaders - t0),
+          bodyMs: Math.round(tDone - tHeaders),
+          totalMs: Math.round(tDone - t0),
+          bytesApprox: new Blob([html]).size,
+          note: note || null,
+        },
+      });
+
       try {
+        const t0 = performance.now();
         const res = await fetch(targetUrl, { method: 'GET', mode: 'cors', credentials: 'omit', headers });
-        if (res.ok) return { html: await res.text(), via: 'direct' };
+        const t1 = performance.now();
+        if (res.ok) {
+          const html = await res.text();
+          const t2 = performance.now();
+          return pack(html, 'direct', t0, t1, t2, res.status, null);
+        }
       } catch (_) { /* CORS or network */ }
 
       if (CONFIG.PROXY_TEMPLATE) {
         const proxyUrl = CONFIG.PROXY_TEMPLATE.replace('{url}', encodeURIComponent(targetUrl));
+        const t0 = performance.now();
         const res = await fetch(proxyUrl, { credentials: 'omit' });
+        const t1 = performance.now();
         if (!res.ok) throw new Error('Proxy HTTP ' + res.status);
-        const txt = await res.text();
-        return { html: txt, via: 'custom-proxy' };
+        const html = await res.text();
+        const t2 = performance.now();
+        return pack(html, 'custom-proxy', t0, t1, t2, res.status, null);
       }
 
       if (CONFIG.USE_PUBLIC_CORS_BRIDGE) {
         const bridge = `https://api.allorigins.win/get?url=${encodeURIComponent(targetUrl)}`;
+        const t0 = performance.now();
         const res = await fetch(bridge);
+        const t1 = performance.now();
         if (!res.ok) throw new Error('Bridge HTTP ' + res.status);
         const j = await res.json();
-        if (!j.contents) throw new Error('Bridge: leere Antwort');
-        return { html: j.contents, via: 'cors-bridge' };
+        const t2 = performance.now();
+        const html = j.contents || '';
+        if (!html) throw new Error('Bridge: leere Antwort');
+        return pack(html, 'cors-bridge', t0, t1, t2, res.status,
+          'Roundtrip‑Zeit inkl. Bridge. Für echtes Ziel‑TTFB: serverseitiger Crawler empfohlen.');
       }
 
       throw new Error('URL nicht abrufbar (CORS). HTML‑Fallback nutzen oder Proxy setzen.');
     }
 
-    // --- Crawl sequence: meta → images/alt → headings → perf heuristics ---
+    // --- Deep crawl: meta → media → headings → perf → IA/UX → design → trust → SEO+ ---
 
-    function parseHtmlDocument(html, pageUrl) {
+    function parseHtmlDocument(html, pageUrl, fetchCtx) {
+      const ctx = fetchCtx || {};
+      const netTimings = ctx.timings || null;
+      const tParse0 = performance.now();
       const parser = new DOMParser();
       const doc = parser.parseFromString(html, 'text/html');
+      const parseMs = Math.round(performance.now() - tParse0);
+
       const steps = [];
-      const findings = { meta: [], images: [], headings: [], performance: [], structure: [] };
+      const findings = {
+        meta: [], images: [], headings: [], performance: [], structure: [],
+        loading: [], advanced_seo: [], ux_ia: [], design: [], trust: [],
+      };
 
       // Step A: Meta & head
       const titleEl = doc.querySelector('title');
@@ -403,7 +427,27 @@
       if (charsetMeta && /utf-8/i.test(charsetMeta)) findings.meta.push({ level: 'ok', msg: 'Zeichencodierung UTF‑8' });
       else findings.meta.push({ level: 'warn', msg: 'Charset / UTF‑8 nicht eindeutig' });
 
+      if (doc.querySelector('parsererror')) {
+        findings.meta.push({ level: 'error', msg: 'Parser meldet fehlerhaftes Markup' });
+      }
+
+      if (netTimings) {
+        findings.loading.push({ level: 'ok', msg: `TTFB (bis erste Response‑Bytes): ${netTimings.ttfbMs} ms` });
+        findings.loading.push({ level: 'ok', msg: `Payload‑Phase (Text): ${netTimings.bodyMs} ms` });
+        findings.loading.push({ level: 'ok', msg: `Gesamt (Fetch): ${netTimings.totalMs} ms · ca. ${(netTimings.bytesApprox / 1024).toFixed(1)} KB HTML` });
+        if (netTimings.ttfbMs > 1200) findings.loading.push({ level: 'warn', msg: 'Hohes TTFB — Hosting, CDN, DB oder Bridge prüfen' });
+        if (netTimings.ttfbMs > 2800) findings.loading.push({ level: 'error', msg: 'Sehr hohes TTFB — Conversion‑Risiko' });
+        if (netTimings.totalMs > 4000) findings.loading.push({ level: 'warn', msg: 'Gesamtabruf > 4 s — wahrscheinlich spürbar langsam' });
+        if (netTimings.totalMs > 9000) findings.loading.push({ level: 'error', msg: 'Gesamtabruf > 9 s — inakzeptabel für B2B' });
+        if (netTimings.note) findings.loading.push({ level: 'ok', msg: netTimings.note });
+      } else {
+        findings.loading.push({ level: 'warn', msg: 'Kein Netzwerk‑Timing (eingefügtes HTML). Für LCP/TTFB: Live‑URL oder Server‑Crawler.' });
+      }
+      if (parseMs > 120) findings.loading.push({ level: 'warn', msg: `Sehr großes DOM — Parsing ${parseMs} ms` });
+      else findings.loading.push({ level: 'ok', msg: `DOM‑Parse lokal: ${parseMs} ms` });
+
       steps.push({ id: 'meta', label: 'Meta‑Tags & SERP‑Signale', ok: findings.meta.every((f) => f.level !== 'error') });
+      steps.push({ id: 'load', label: 'Ladezeit & Abruf', ok: !findings.loading.some((f) => f.level === 'error') });
 
       // Step B: Images / alt
       const imgs = [...doc.querySelectorAll('img')];
@@ -448,55 +492,289 @@
 
       steps.push({ id: 'head', label: 'Überschriften‑Hierarchie', ok: !findings.headings.some((f) => f.level === 'error') });
 
-      // Step D: Performance heuristics (static)
+      // Step D: Performance heuristics (static + render‑Risiken)
       const scripts = doc.querySelectorAll('script[src]').length;
       const inlineScripts = [...doc.querySelectorAll('script:not([src])')].reduce((n, s) => n + (s.textContent?.length || 0), 0);
       const styles = doc.querySelectorAll('link[rel="stylesheet"]').length;
+      const headBlockingScripts = [...doc.querySelectorAll('head script[src]')].filter((s) => !s.async && !s.defer).length;
+      const preloads = doc.querySelectorAll('link[rel="preload"],link[rel="modulepreload"]').length;
+      const preconnects = doc.querySelectorAll('link[rel="preconnect"],link[rel="dns-prefetch"]').length;
+      const iframes = doc.querySelectorAll('iframe').length;
+
       if (scripts > 25) findings.performance.push({ level: 'warn', msg: `Viele externe Skripte (${scripts})` });
       else findings.performance.push({ level: 'ok', msg: `Externe Skripte: ${scripts}` });
-      if (inlineScripts > 8000) findings.performance.push({ level: 'warn', msg: 'Große Inline‑Skripte' });
+      if (inlineScripts > 8000) findings.performance.push({ level: 'warn', msg: 'Große Inline‑Skripte (Parsing‑Kosten)' });
       if (styles > 12) findings.performance.push({ level: 'warn', msg: `Viele CSS‑Dateien (${styles})` });
       else findings.performance.push({ level: 'ok', msg: `Stylesheets: ${styles}` });
+      if (headBlockingScripts > 0) findings.performance.push({ level: 'warn', msg: `${headBlockingScripts} render‑blockierende Skripte im <head> (ohne defer/async)` });
+      if (preloads) findings.performance.push({ level: 'ok', msg: `Ressourcen‑Hints: ${preloads} preload/modulepreload` });
+      if (preconnects) findings.performance.push({ level: 'ok', msg: `Origin‑Hints: ${preconnects} preconnect/dns‑prefetch` });
+      else findings.performance.push({ level: 'warn', msg: 'Keine preconnect/dns‑prefetch — externe Fonts/APIs langsamer' });
+      if (iframes > 6) findings.performance.push({ level: 'warn', msg: `Viele iframes (${iframes}) — Third‑Party‑Last` });
 
-      steps.push({ id: 'perf', label: 'Performance‑Heuristik (HTML)', ok: true });
+      const imgsLazy = imgs.filter((img) => (img.getAttribute('loading') || '').toLowerCase() === 'lazy').length;
+      if (imgs.length && imgsLazy / imgs.length < 0.25 && imgs.length > 8) {
+        findings.performance.push({ level: 'warn', msg: 'Wenig lazy‑loading trotz vieler Bilder — LCP‑Risiko' });
+      }
+      const imgsNoDims = imgs.filter((img) => !img.getAttribute('width') && !img.getAttribute('height')).length;
+      if (imgsNoDims > 5) findings.performance.push({ level: 'warn', msg: `${imgsNoDims} Bilder ohne width/height — CLS‑Risiko` });
 
-      // Structure: html lang, main landmark
+      const htmlKb = (html.length / 1024).toFixed(1);
+      if (html.length > 800_000) findings.performance.push({ level: 'error', msg: `Extrem großes HTML (${htmlKb} KB)` });
+      else if (html.length > 200_000) findings.performance.push({ level: 'warn', msg: `Sehr großes HTML (${htmlKb} KB)` });
+      else findings.performance.push({ level: 'ok', msg: `HTML‑Rohgröße: ${htmlKb} KB` });
+
+      steps.push({ id: 'perf', label: 'Performance & Lade‑Heuristik', ok: !findings.performance.some((f) => f.level === 'error') });
+
+      // Structure: semantics & landmarks
       const htmlLang = doc.documentElement.getAttribute('lang');
       if (!htmlLang) findings.structure.push({ level: 'warn', msg: 'html[lang] fehlt' });
       else findings.structure.push({ level: 'ok', msg: `lang="${htmlLang}"` });
       if (!doc.querySelector('main')) findings.structure.push({ level: 'warn', msg: 'Kein <main> Landmark' });
       else findings.structure.push({ level: 'ok', msg: '<main> vorhanden' });
+      const hasHeader = !!doc.querySelector('header,[role="banner"]');
+      const hasNav = !!doc.querySelector('nav,[role="navigation"]');
+      const hasFooter = !!doc.querySelector('footer,[role="contentinfo"]');
+      if (hasHeader) findings.structure.push({ level: 'ok', msg: 'Kopfbereich / Banner erkannt' });
+      else findings.structure.push({ level: 'warn', msg: 'Kein <header> — Prüfen ob Skip‑Navigation fehlt' });
+      if (hasNav) findings.structure.push({ level: 'ok', msg: 'Navigation vorhanden' });
+      else findings.structure.push({ level: 'warn', msg: 'Kein <nav> — Orientierung schwieriger' });
+      if (hasFooter) findings.structure.push({ level: 'ok', msg: 'Footer vorhanden (Vertrauen / Rechtliches)' });
+      else findings.structure.push({ level: 'warn', msg: 'Kein <footer> — typische B2B‑Elemente fehlen oft' });
+      const articles = doc.querySelectorAll('article').length;
+      if (articles) findings.structure.push({ level: 'ok', msg: `${articles} <article> — inhaltliche Module` });
 
-      steps.push({ id: 'struct', label: 'Dokumentstruktur', ok: true });
+      steps.push({ id: 'struct', label: 'Semantik & Seitenaufbau', ok: true });
 
-      return { doc, findings, steps, stats: { titleLen: title.length, descLen: desc?.length || 0, imgCount: imgs.length, missingAlt, headingCount: levels.length, scripts, styles } };
+      // Advanced SEO
+      const hreflangs = doc.querySelectorAll('link[rel="alternate"][hreflang]').length;
+      if (hreflangs) findings.advanced_seo.push({ level: 'ok', msg: `${hreflangs} hreflang‑Alternate(s)` });
+      else if (pageUrl.startsWith('http')) findings.advanced_seo.push({ level: 'warn', msg: 'Keine hreflang‑Links erkannt (Mehrsprachigkeit?)' });
+
+      const ldNodes = [...doc.querySelectorAll('script[type="application/ld+json"]')];
+      let ldInvalid = 0;
+      ldNodes.forEach((n) => {
+        const raw = (n.textContent || '').trim();
+        if (!raw) return;
+        try {
+          JSON.parse(raw);
+        } catch {
+          ldInvalid++;
+        }
+      });
+      if (ldNodes.length) findings.advanced_seo.push({ level: 'ok', msg: `${ldNodes.length} JSON‑LD Block/Blöcke` });
+      else findings.advanced_seo.push({ level: 'warn', msg: 'Kein JSON‑LD — Rich Results / KI‑Snippet‑Potenzial ungenutzt' });
+      if (ldInvalid) findings.advanced_seo.push({ level: 'error', msg: `${ldInvalid} JSON‑LD Block(s) syntaktisch ungültig` });
+
+      if (getMeta('twitter:card', 'name')) findings.advanced_seo.push({ level: 'ok', msg: 'Twitter Card Meta vorhanden' });
+      else findings.advanced_seo.push({ level: 'warn', msg: 'Keine twitter:card Meta' });
+
+      const allIds = [...doc.querySelectorAll('[id]')].map((el) => el.id);
+      const dupIds = [...new Set(allIds.filter((id, i) => id && allIds.indexOf(id) !== i))];
+      if (dupIds.length) findings.advanced_seo.push({ level: 'error', msg: `Doppelte IDs: ${dupIds.slice(0, 5).join(', ')}${dupIds.length > 5 ? '…' : ''}` });
+
+      const bodyText = doc.body?.innerText || '';
+      const wordCount = bodyText.trim() ? bodyText.trim().split(/\s+/).length : 0;
+      if (wordCount < 120) findings.advanced_seo.push({ level: 'warn', msg: `Dünner sichtbarer Text (~${wordCount} Wörter) — E‑E‑A‑T / Qualitätssignal` });
+      else findings.advanced_seo.push({ level: 'ok', msg: `Sichtbarer Fließtext ~${wordCount} Wörter` });
+
+      const h1Text = (h1s[0]?.text || title).toLowerCase();
+      if (title && h1s.length === 1 && !h1Text.includes(title.slice(0, 12).toLowerCase()) && !title.toLowerCase().includes(h1Text.slice(0, 12))) {
+        findings.advanced_seo.push({ level: 'warn', msg: 'H1 und <title> wirken thematisch entkoppelt' });
+      }
+
+      steps.push({ id: 'aseo', label: 'SEO‑Tiefe (Schema, hreflang, Text)', ok: !findings.advanced_seo.some((f) => f.level === 'error') });
+
+      // UX / IA
+      const emptyLinks = [...doc.querySelectorAll('a[href]')].filter((a) => !(a.textContent || '').trim() && !a.querySelector('img,svg')).length;
+      if (emptyLinks) findings.ux_ia.push({ level: 'error', msg: `${emptyLinks} leere Links (nur Icon ok — prüfen)` });
+
+      const genericRe = /^(hier klicken|click here|mehr|weiter|read more|more|link|here)$/i;
+      const badLinkTexts = [...doc.querySelectorAll('a[href]')].filter((a) => genericRe.test((a.textContent || '').trim())).length;
+      if (badLinkTexts) findings.ux_ia.push({ level: 'warn', msg: `${badLinkTexts} generische Link‑Texte — schlecht für SEO & Screenreader` });
+
+      const navLinks = doc.querySelectorAll('nav a[href]').length;
+      if (navLinks > 90) findings.ux_ia.push({ level: 'warn', msg: `Sehr viele Nav‑Links (${navLinks}) — kognitive Last` });
+      else if (navLinks) findings.ux_ia.push({ level: 'ok', msg: `Navigation: ${navLinks} Links` });
+
+      const inputs = [...doc.querySelectorAll('input:not([type="hidden"]), textarea, select')];
+      let unlabeled = 0;
+      inputs.forEach((el) => {
+        const id = el.getAttribute('id');
+        const aria = el.getAttribute('aria-label') || el.getAttribute('aria-labelledby');
+        const inLabel = el.closest('label');
+        let hasFor = false;
+        if (id) {
+          try {
+            const q = typeof CSS !== 'undefined' && CSS.escape
+              ? `label[for="${CSS.escape(id)}"]`
+              : `label[for="${id.replace(/\\/g, '\\\\').replace(/"/g, '\\"')}"]`;
+            hasFor = !!doc.querySelector(q);
+          } catch {
+            hasFor = false;
+          }
+        }
+        if (!aria && !inLabel && !hasFor) unlabeled++;
+      });
+      if (unlabeled) findings.ux_ia.push({ level: 'warn', msg: `${unlabeled} Formularfelder ohne klares Label` });
+
+      if (doc.querySelector('a[href^="#"]')) findings.ux_ia.push({ level: 'ok', msg: 'Anker‑Navigation vorhanden' });
+
+      steps.push({ id: 'ux', label: 'UX & Informationsarchitektur', ok: !findings.ux_ia.some((f) => f.level === 'error') });
+
+      // Design / "Wow" heuristics (Markup‑basiert)
+      const lowerHtml = html.toLowerCase();
+      const svgN = doc.querySelectorAll('svg').length;
+      const videoN = doc.querySelectorAll('video').length;
+      const canvasN = doc.querySelectorAll('canvas').length;
+      const pictureN = doc.querySelectorAll('picture').length;
+      const animHits = (lowerHtml.match(/@keyframes/g) || []).length + (lowerHtml.match(/\banimation\s*:/g) || []).length;
+      const transHits = (lowerHtml.match(/\btransition\s*:/g) || []).length;
+      const backdropHits = (lowerHtml.match(/backdrop-filter/g) || []).length;
+      const gradHits = (lowerHtml.match(/linear-gradient|radial-gradient/g) || []).length;
+      const fontLinks = doc.querySelectorAll('link[href*="fonts.googleapis"],link[href*="typekit"],link[href*="fonts.gstatic"]').length;
+
+      let wowPts = 0;
+      if (svgN >= 3) wowPts += 2;
+      if (videoN + canvasN > 0) wowPts += 2;
+      if (animHits + transHits > 8) wowPts += 2;
+      if (backdropHits || gradHits > 4) wowPts += 2;
+      if (pictureN) wowPts += 1;
+      if (fontLinks) wowPts += 1;
+
+      findings.design.push({ level: 'ok', msg: `Visuelle Dichte: ${svgN} SVG, ${videoN} Video, ${canvasN} Canvas, ${pictureN} picture` });
+      findings.design.push({ level: 'ok', msg: `Motion/Fläche: ${animHits} @keyframes/animation, ${transHits} transition, ${gradHits} Gradient‑Treffer` });
+      if (backdropHits) findings.design.push({ level: 'ok', msg: 'backdrop‑filter — moderne Tiefe möglich' });
+      if (wowPts >= 6) findings.design.push({ level: 'ok', msg: 'Hohes Potenzial für visuellen „Wow“‑Effekt (Heuristik)' });
+      else if (wowPts >= 3) findings.design.push({ level: 'ok', msg: 'Solides visuelles Niveau — ausbaufähig' });
+      else findings.design.push({ level: 'warn', msg: 'Wenig Motion/SVG/Medien — Seite wirkt eher statisch / nüchtern' });
+
+      const inlineStyleNodes = doc.querySelectorAll('[style]').length;
+      if (inlineStyleNodes > 80) findings.design.push({ level: 'warn', msg: `Viele inline‑styles (${inlineStyleNodes}) — Design‑System oft fragmentiert` });
+
+      const themeColor = getMeta('theme-color');
+      if (themeColor) findings.design.push({ level: 'ok', msg: `theme-color gesetzt (${themeColor})` });
+      else findings.design.push({ level: 'warn', msg: 'Kein meta theme-color — Mobile Browser‑Chrome weniger markenstark' });
+
+      const fav = doc.querySelector('link[rel~="icon"],link[rel="apple-touch-icon"]');
+      if (fav) findings.design.push({ level: 'ok', msg: 'Favicon / Touch‑Icon vorhanden' });
+      else findings.design.push({ level: 'warn', msg: 'Kein Favicon erkannt' });
+
+      steps.push({ id: 'design', label: 'Design & visuelle Wirkung', ok: true });
+
+      // Trust / security surface in markup
+      const blankExt = [...doc.querySelectorAll('a[target="_blank"]')].filter((a) => {
+        const rel = (a.getAttribute('rel') || '').toLowerCase();
+        return !rel.includes('noopener') && !rel.includes('noreferrer');
+      }).length;
+      if (blankExt) findings.trust.push({ level: 'warn', msg: `${blankExt} target=_blank ohne noopener/noreferrer — Tab‑Hijacking‑Risiko` });
+
+      let isHttps = false;
+      try {
+        isHttps = new URL(pageUrl).protocol === 'https:';
+      } catch {
+        isHttps = pageUrl.startsWith('https://');
+      }
+      if (isHttps) {
+        const httpLinks = [...doc.querySelectorAll('a[href^="http:"]')].length;
+        if (httpLinks) findings.trust.push({ level: 'error', msg: `${httpLinks} http‑Links auf https‑Seite — Mixed‑Content / Vertrauen` });
+      }
+
+      const extScripts = [...doc.querySelectorAll('script[src]')];
+      const noSri = extScripts.filter((s) => !s.getAttribute('integrity')).length;
+      if (noSri > 5) findings.trust.push({ level: 'warn', msg: `${noSri} externe Skripte ohne SRI integrity — Supply‑Chain‑Risiko` });
+
+      steps.push({ id: 'trust', label: 'Sicherheit & Vertrauen (Markup)', ok: !findings.trust.some((f) => f.level === 'error') });
+
+      return {
+        doc,
+        findings,
+        steps,
+        stats: {
+          titleLen: title.length,
+          descLen: desc?.length || 0,
+          imgCount: imgs.length,
+          missingAlt,
+          headingCount: levels.length,
+          scripts,
+          styles,
+          parseMs,
+          wordCount,
+          wowPts,
+          netTimings: netTimings ? { ...netTimings } : null,
+          htmlKb,
+        },
+      };
     }
 
     function scoreAudit(findings) {
-      const weights = { seo: 0.45, perf: 0.28, struct: 0.27 };
+      const weights = { seo: 0.28, performance: 0.26, structure: 0.24, experience: 0.22 };
       function bucketScore(items) {
-        if (!items.length) return 70;
+        if (!items.length) return 78;
         let s = 100;
         items.forEach((f) => {
-          if (f.level === 'error') s -= 22;
-          else if (f.level === 'warn') s -= 9;
+          if (f.level === 'error') s -= 20;
+          else if (f.level === 'warn') s -= 8;
         });
         return Math.max(0, Math.min(100, s));
       }
 
-      const seoScore = bucketScore([...findings.meta, ...findings.images, ...findings.headings]);
-      const perfScore = bucketScore(findings.performance);
-      const structScore = bucketScore(findings.structure);
+      const seoScore = bucketScore([
+        ...findings.meta,
+        ...findings.images,
+        ...findings.headings,
+        ...findings.advanced_seo,
+      ]);
+      const perfScore = bucketScore([...findings.performance, ...findings.loading]);
+      const structScore = bucketScore([...findings.structure, ...findings.ux_ia]);
+      const expScore = bucketScore([...findings.design, ...findings.trust]);
 
-      const total = Math.round(seoScore * weights.seo + perfScore * weights.perf + structScore * weights.struct);
+      const total = Math.round(
+        seoScore * weights.seo
+        + perfScore * weights.performance
+        + structScore * weights.structure
+        + expScore * weights.experience,
+      );
       return {
         total,
         dimensions: {
           seo: Math.round(seoScore),
           performance: Math.round(perfScore),
           structure: Math.round(structScore),
+          experience: Math.round(expScore),
         },
       };
+    }
+
+    function escapeHtml(s) {
+      return String(s).replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;').replace(/"/g, '&quot;');
+    }
+
+    function buildPriorityList(findings) {
+      const keys = ['loading', 'meta', 'advanced_seo', 'images', 'headings', 'performance', 'structure', 'ux_ia', 'design', 'trust'];
+      const rows = [];
+      keys.forEach((k) => {
+        (findings[k] || []).forEach((f) => {
+          if (f.level === 'error' || f.level === 'warn') {
+            rows.push({ sev: f.level === 'error' ? 0 : 1, cat: k, msg: f.msg });
+          }
+        });
+      });
+      rows.sort((a, b) => a.sev - b.sev || a.msg.localeCompare(b.msg));
+      return rows.slice(0, 24);
+    }
+
+    function renderPriorityList(findings) {
+      const rows = buildPriorityList(findings);
+      const ol = $('priorityList');
+      if (!rows.length) {
+        ol.innerHTML = '<li class="text-neutral-500 list-none -ml-4">Keine kritischen oder mittleren Befunde — weiter optimieren nach „OK“‑Hinweisen im Deep Dive.</li>';
+        return;
+      }
+      ol.innerHTML = rows.map((r) => {
+        const tag = r.sev === 0 ? '<span class="text-red-400 font-mono text-[10px] mr-2">ERR</span>' : '<span class="text-amber-300/90 font-mono text-[10px] mr-2">WRN</span>';
+        return `<li class="leading-snug">${tag}${escapeHtml(r.msg)}</li>`;
+      }).join('');
     }
 
     function renderGauge(score) {
@@ -527,9 +805,10 @@
 
     function renderDimBars(dims) {
       const rows = [
-        { k: 'seo', label: 'SEO & Content‑Signale' },
-        { k: 'performance', label: 'Performance (Heuristik)' },
-        { k: 'structure', label: 'Struktur & Semantik' },
+        { k: 'seo', label: 'SEO & SERP‑Tiefe' },
+        { k: 'performance', label: 'Performance & Ladezeit' },
+        { k: 'structure', label: 'Struktur & UX / IA' },
+        { k: 'experience', label: 'Design & Vertrauen' },
       ];
       $('dimBars').innerHTML = rows.map(({ k, label }) => {
         const v = dims[k];
@@ -545,24 +824,41 @@
     function renderDeepDive(findings, stats, via) {
       const block = (title, items) => {
         if (!items.length) return `<div><p class="text-neutral-500 mb-1">${title}</p><p>—</p></div>`;
-        const lis = items.map((i) => `<li class="mb-1 ${i.level === 'error' ? 'text-red-300' : i.level === 'warn' ? 'text-amber-200/90' : 'text-emerald-300/90'}">${i.msg}</li>`).join('');
+        const lis = items.map((i) => `<li class="mb-1 ${i.level === 'error' ? 'text-red-300' : i.level === 'warn' ? 'text-amber-200/90' : 'text-emerald-300/90'}">${escapeHtml(i.msg)}</li>`).join('');
         return `<div><p class="text-white font-semibold mb-2 text-[11px] uppercase tracking-wider">${title}</p><ul class="list-disc pl-4 space-y-0.5">${lis}</ul></div>`;
       };
+      const nt = stats.netTimings;
+      const timingRows = nt
+        ? `<div class="sm:col-span-2 rounded border border-line/80 bg-black/30 p-3 mb-2">
+            <p class="text-[10px] font-mono text-accent uppercase tracking-wider mb-2">Netzwerk‑Messung (dieser Abruf)</p>
+            <div class="grid sm:grid-cols-3 gap-2 text-[11px] font-mono text-neutral-400">
+              <div>TTFB: <span class="text-neutral-200">${nt.ttfbMs} ms</span></div>
+              <div>Payload: <span class="text-neutral-200">${nt.bodyMs} ms</span></div>
+              <div>Gesamt: <span class="text-neutral-200">${nt.totalMs} ms</span> · ${nt.bytesApprox != null ? (nt.bytesApprox / 1024).toFixed(1) + ' KB' : '—'}</div>
+            </div>${nt.note ? `<p class="text-[10px] text-neutral-500 mt-1">${escapeHtml(nt.note)}</p>` : ''}</div>`
+        : '<div class="sm:col-span-2 text-[11px] text-neutral-500">Kein Netzwerk‑Timing (HTML‑Einfügen).</div>';
       $('deepDiveContent').innerHTML = `
-        <p class="text-neutral-500 mb-2">Abruf: <span class="text-neutral-300">${via}</span></p>
-        <div class="grid sm:grid-cols-2 gap-4 text-[11px] font-mono text-neutral-400">
-          <div>Titel Länge: ${stats.titleLen}</div>
-          <div>Description Länge: ${stats.descLen}</div>
-          <div>Bilder: ${stats.imgCount}</div>
-          <div>Ohne alt: ${stats.missingAlt}</div>
-          <div>Überschriften: ${stats.headingCount}</div>
-          <div>Ext. Skripte / CSS: ${stats.scripts} / ${stats.styles}</div>
+        <p class="text-neutral-500 mb-2">Abrufmodus: <span class="text-neutral-300">${escapeHtml(via)}</span></p>
+        <div class="grid sm:grid-cols-2 gap-x-6 gap-y-2 text-[11px] font-mono text-neutral-400 mb-4">
+          ${timingRows}
+          <div>DOM‑Parse: <span class="text-neutral-200">${stats.parseMs} ms</span></div>
+          <div>Wörter (sichtbar): <span class="text-neutral-200">${stats.wordCount}</span></div>
+          <div>Wow‑Heuristik‑Punkte: <span class="text-neutral-200">${stats.wowPts}</span></div>
+          <div>Titel / Desc Zeichen: <span class="text-neutral-200">${stats.titleLen} / ${stats.descLen}</span></div>
+          <div>Bilder (ohne alt): <span class="text-neutral-200">${stats.imgCount} (${stats.missingAlt})</span></div>
+          <div>Überschriften / HTML: <span class="text-neutral-200">${stats.headingCount} / ${stats.htmlKb} KB</span></div>
+          <div>Skripte / CSS: <span class="text-neutral-200">${stats.scripts} / ${stats.styles}</span></div>
         </div>
+        ${block('Ladezeit & Abruf', findings.loading)}
         ${block('Meta & SERP', findings.meta)}
+        ${block('SEO‑Tiefe', findings.advanced_seo)}
         ${block('Bilder', findings.images)}
         ${block('Überschriften', findings.headings)}
-        ${block('Performance', findings.performance)}
-        ${block('Struktur', findings.structure)}
+        ${block('Performance (Ressourcen & HTML)', findings.performance)}
+        ${block('Semantik & Aufbau', findings.structure)}
+        ${block('UX & Informationsarchitektur', findings.ux_ia)}
+        ${block('Design & visuelle Wirkung', findings.design)}
+        ${block('Sicherheit & Vertrauen', findings.trust)}
       `;
     }
 
@@ -578,18 +874,21 @@
       let html = '';
       let pageUrl = rawUrl || 'inline://pasted-html';
       let via = 'inline';
+      let fetchCtx = { via, timings: null };
 
       if (fallback) {
         html = fallback;
         via = 'html-fallback';
+        fetchCtx = { via, timings: null };
         pushStep(ol, 'HTML‑Fallback geladen', true);
       } else if (rawUrl) {
         try {
-          pushStep(ol, 'Ressource wird abgerufen (Direkt / Proxy)…', true);
+          pushStep(ol, 'Ressource wird abgerufen (Direkt / Bridge)…', true);
           const got = await fetchHtmlRaw(rawUrl);
           html = got.html;
           via = got.via;
-          pushStep(ol, `Antwort erhalten (${via})`, true);
+          fetchCtx = { via, timings: got.timings };
+          pushStep(ol, `Antwort erhalten (${via}) — TTFB ${got.timings.ttfbMs} ms, gesamt ${got.timings.totalMs} ms`, true);
         } catch (e) {
           pushStep(ol, String(e.message || e), false);
           $('progressLabel').textContent = 'Abbruch';
@@ -600,24 +899,21 @@
         return;
       }
 
-      pushStep(ol, 'Schritt 1: Meta‑Tags & SERP‑Signale', true);
-      pushStep(ol, 'Schritt 2: Alt‑Texte & Bild‑SEO', true);
-      pushStep(ol, 'Schritt 3: Überschriften‑Hierarchie', true);
-      pushStep(ol, 'Schritt 4: Performance‑Heuristik', true);
-      pushStep(ol, 'Schritt 5: Struktur & Semantik', true);
+      pushStep(ol, 'Pipeline: Meta → Medien → Überschriften → Performance → SEO‑Tiefe → UX/IA → Design → Sicherheit', true);
 
-      const { findings, steps, stats } = parseHtmlDocument(html, pageUrl);
+      const { findings, steps, stats } = parseHtmlDocument(html, pageUrl, fetchCtx);
       const { total, dimensions } = scoreAudit(findings);
 
       lastAuditPayload = {
         url: pageUrl,
         score: total,
         result_json: {
-          version: 1,
+          version: 2,
           via,
           dimensions,
           findings,
           stats,
+          priority: buildPriorityList(findings),
           steps: steps.map((s) => ({ id: s.id, label: s.label, ok: s.ok })),
           scannedAt: new Date().toISOString(),
         },
@@ -627,6 +923,7 @@
       renderGauge(total);
       renderDimBars(dimensions);
       renderDeepDive(findings, stats, via);
+      renderPriorityList(findings);
       $('saveMsg').textContent = '';
       $('progressLabel').textContent = 'Scan abgeschlossen';
     }
@@ -640,7 +937,6 @@
 
     // --- Events ---
 
-    $('btnInitSb').addEventListener('click', () => initSupabase());
     $('btnAuth').addEventListener('click', () => promptLogin());
     $('btnSignOut').addEventListener('click', () => signOut());
     $('btnCrawl').addEventListener('click', () => runCrawlSequence());
@@ -668,8 +964,7 @@
       }
     });
 
-    loadLocalConfig();
-    if ($('cfgUrl').value && $('cfgKey').value) initSupabase();
+    initSupabase();
 
     /** Public hooks for future Gemini / modules */
     window.AuditFlow = { initSupabase, saveAudit, runCrawl: runCrawlSequence };
