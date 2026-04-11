@@ -3,100 +3,72 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>QueryLogic Pro | Production Ready</title>
+    <title>QueryLogic | SaaS Core Stable</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;700;800&family=JetBrains+Mono:wght@500&display=swap" rel="stylesheet">
     <style>
         :root { --lime: #c8f135; --bg: #050505; --card: #0d0d0b; --border: #1a1a16; }
-        body { 
-            font-family: 'Plus Jakarta Sans', sans-serif; 
-            background-color: var(--bg); 
-            color: #e8e8e0; 
-            -webkit-font-smoothing: antialiased;
-        }
+        body { font-family: 'Plus Jakarta Sans', sans-serif; background-color: var(--bg); color: #e8e8e0; }
         .mono { font-family: 'JetBrains Mono', monospace; }
         .glass { background: var(--card); border: 1px solid var(--border); }
         .neon-text { color: var(--lime); text-shadow: 0 0 15px rgba(200, 241, 53, 0.3); }
-        
-        .terminal {
-            background: #000;
-            border: 1px solid #1a1a16;
-            height: 150px;
-            overflow-y: auto;
-            padding: 12px;
-            font-size: 11px;
-            color: #666;
-        }
-        .terminal-entry { margin-bottom: 4px; border-bottom: 1px solid #0a0a0a; padding-bottom: 2px; }
-        .terminal-error { color: #ef4444; }
+        .terminal { background: #000; border: 1px solid #1a1a16; height: 200px; overflow-y: auto; padding: 15px; font-size: 11px; color: #777; }
+        .terminal-entry { margin-bottom: 6px; border-bottom: 1px solid #0a0a0a; padding-bottom: 4px; line-height: 1.4; }
+        .terminal-error { color: #ff4444; }
         .terminal-success { color: var(--lime); }
-        
-        input::placeholder { color: #333; }
-        .loader {
-            width: 18px; height: 18px;
-            border: 2px solid #222;
-            border-top: 2px solid var(--lime);
-            border-radius: 50%;
-            animation: spin 0.8s linear infinite;
-            display: inline-block;
-        }
+        .terminal-warn { color: #facc15; }
+        .loader { width: 20px; height: 20px; border: 2px solid #222; border-top: 2px solid var(--lime); border-radius: 50%; animation: spin 0.8s linear infinite; display: inline-block; }
         @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
     </style>
 </head>
 <body class="min-h-screen flex flex-col items-center py-12 px-4">
 
     <div class="w-full max-w-xl">
+        <!-- Header -->
         <div class="mb-10 text-center">
             <h1 class="text-3xl font-extrabold tracking-tighter uppercase italic">Query<span class="neon-text">Logic</span></h1>
             <div class="inline-flex items-center gap-2 mt-2 px-3 py-1 border border-lime-500/20 rounded-full bg-lime-500/5">
-                <span class="w-1.5 h-1.5 rounded-full bg-lime-500 animate-pulse"></span>
-                <span class="text-[9px] font-mono text-lime-500 uppercase tracking-widest">Global SaaS Deployment // Core v2.1</span>
+                <span id="statusPulse" class="w-2 h-2 rounded-full bg-zinc-800"></span>
+                <span class="text-[9px] font-mono text-zinc-500 uppercase tracking-widest">Stable Release v2.5 // Build 2026</span>
             </div>
         </div>
 
+        <!-- UI Card -->
         <div class="glass p-8 rounded-[32px] shadow-2xl space-y-6">
-            <div class="grid grid-cols-1 gap-4">
-                <div>
-                    <label class="block text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-2 ml-1">Target URL</label>
+            <div class="space-y-4">
+                <div class="space-y-1">
+                    <label class="text-[10px] uppercase font-bold text-zinc-600 ml-1">Website URL</label>
                     <input type="url" id="targetUrl" placeholder="https://apple.com" 
-                        class="w-full bg-black/50 border border-[#1a1a16] p-4 rounded-2xl outline-none focus:border-lime-500/50 transition-all text-white">
+                        class="w-full bg-black/50 border border-[#1a1a16] p-4 rounded-2xl outline-none focus:border-lime-500/50 transition-all text-white text-sm">
                 </div>
-                <div>
-                    <label class="block text-[10px] font-bold uppercase tracking-widest text-zinc-500 mb-2 ml-1">AI Studio Key (Gemini)</label>
-                    <input type="password" id="apiKey" placeholder="Enter API Key here..." 
-                        class="w-full bg-black/50 border border-[#1a1a16] p-4 rounded-2xl outline-none focus:border-lime-500/50 transition-all text-white">
+                <div class="space-y-1">
+                    <label class="text-[10px] uppercase font-bold text-zinc-600 ml-1">AI Studio API Key</label>
+                    <input type="password" id="apiKey" placeholder="Paste your Gemini Key" 
+                        class="w-full bg-black/50 border border-[#1a1a16] p-4 rounded-2xl outline-none focus:border-lime-500/50 transition-all text-white text-sm">
                 </div>
             </div>
 
-            <button id="runBtn" onclick="startProcess()" class="w-full bg-[#c8f135] text-black font-black py-5 rounded-2xl hover:scale-[1.01] active:scale-[0.98] transition-all flex items-center justify-center gap-3">
-                EXECUTE AUDIT
+            <button id="runBtn" onclick="initAudit()" class="w-full bg-[#c8f135] text-black font-black py-5 rounded-2xl hover:scale-[1.01] active:scale-[0.98] transition-all flex items-center justify-center gap-3">
+                START ANALYSIS
             </button>
 
-            <div class="mt-4">
-                <div class="flex items-center justify-between mb-2 px-1">
-                    <span class="text-[9px] font-bold uppercase text-zinc-600 tracking-widest">Real-time Diagnostic</span>
-                    <div id="statusDot" class="w-1.5 h-1.5 rounded-full bg-zinc-800"></div>
-                </div>
-                <div id="terminal" class="terminal mono rounded-xl shadow-inner">
-                    <div class="terminal-entry">> System idle. Awaiting user input...</div>
-                </div>
+            <!-- Logging Terminal -->
+            <div id="terminal" class="terminal mono rounded-xl shadow-inner">
+                <div class="terminal-entry">> System online. Ready for Canada deployment.</div>
             </div>
         </div>
 
+        <!-- Result Dashboard -->
         <div id="results" class="hidden grid grid-cols-2 gap-4 mt-8">
             <div class="glass p-8 rounded-[24px] text-center border-t border-lime-500/20">
                 <span class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">SEO Score</span>
                 <div id="seoVal" class="text-5xl font-black neon-text mt-2">0</div>
             </div>
             <div class="glass p-8 rounded-[24px] text-center border-t border-lime-500/20">
-                <span class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Speed Score</span>
+                <span class="text-[10px] font-bold text-zinc-500 uppercase tracking-widest">Perf Score</span>
                 <div id="perfVal" class="text-5xl font-black neon-text mt-2">0</div>
             </div>
         </div>
-
-        <footer class="mt-12 text-center text-[10px] text-zinc-700 font-mono uppercase tracking-[0.2em]">
-            Operational Prep: Canada Arrival Aug 30
-        </footer>
     </div>
 
     <script type="importmap">
@@ -112,89 +84,97 @@
 
         const term = document.getElementById('terminal');
         const btn = document.getElementById('runBtn');
-        const dot = document.getElementById('statusDot');
-        const results = document.getElementById('results');
+        const pulse = document.getElementById('statusPulse');
 
-        function addLog(msg, type = 'info') {
-            const entry = document.createElement('div');
-            entry.className = `terminal-entry ${type === 'error' ? 'terminal-error' : type === 'success' ? 'terminal-success' : ''}`;
-            entry.innerText = `> [${new Date().toLocaleTimeString()}] ${msg}`;
-            term.appendChild(entry);
+        function log(msg, type = 'info') {
+            const div = document.createElement('div');
+            div.className = `terminal-entry ${type === 'error' ? 'terminal-error' : type === 'success' ? 'terminal-success' : type === 'warn' ? 'terminal-warn' : ''}`;
+            div.innerText = `[${new Date().toLocaleTimeString()}] ${msg}`;
+            term.appendChild(div);
             term.scrollTop = term.scrollHeight;
         }
 
-        async function startProcess() {
-            const urlInput = document.getElementById('targetUrl').value.trim();
-            const keyInput = document.getElementById('apiKey').value.trim();
+        async function initAudit() {
+            const url = document.getElementById('targetUrl').value.trim();
+            const key = document.getElementById('apiKey').value.trim();
 
-            if (!urlInput || !keyInput) {
-                addLog("Execution halted: Input missing.", "error");
+            if (!url || !key) {
+                log("Fehler: URL oder API-Key fehlt.", "error");
                 return;
             }
 
+            // UI Reset
             btn.disabled = true;
-            btn.innerHTML = '<span class="loader"></span> ANALYZING...';
-            dot.className = "w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse";
-            results.classList.add('hidden');
-            addLog(`Starte Audit-Sequenz für ${urlInput}...`);
+            btn.innerHTML = '<span class="loader"></span> VERARBEITE...';
+            pulse.className = "w-2 h-2 rounded-full bg-blue-500 animate-pulse";
+            document.getElementById('results').classList.add('hidden');
+            
+            log(`Initialisiere Audit für: ${url}`);
 
-            // REALE MODELLE (Stand April 2026)
-            // KEINE FANTASIE-NAMEN WIE gemini-2.5-flash-lite VERWENDEN
-            const modelSequence = ['gemini-2.0-flash', 'gemini-1.5-flash'];
-            let auditComplete = false;
+            // DEFINITIVE MODELL-KETTE (2026)
+            const models = ['gemini-2.0-flash', 'gemini-1.5-flash'];
+            let auditSuccessful = false;
 
-            for (const mId of modelSequence) {
-                if (auditComplete) break;
-                addLog(`Versuche Verbindung zu: ${mId}`);
+            for (const modelId of models) {
+                if (auditSuccessful) break;
+                log(`Versuche Verbindung über ${modelId}...`, "info");
 
                 try {
-                    const genAI = new GoogleGenerativeAI(keyInput);
+                    const genAI = new GoogleGenerativeAI(key);
                     const model = genAI.getGenerativeModel({ 
-                        model: mId,
+                        model: modelId,
                         generationConfig: { 
                             responseMimeType: "application/json",
-                            temperature: 0.2
+                            temperature: 0.1 
                         }
                     });
 
-                    // Prompt mit strikter JSON-Anforderung
-                    const prompt = `Führe ein technisches Audit für die Website ${urlInput} durch. Gib EXKLUSIV ein JSON-Objekt zurück: {"seo": Zahl, "perf": Zahl}. Keine Einleitung, keine Markdown-Blöcke.`;
+                    const prompt = `Führe ein SEO- und Performance-Audit für ${url} durch. Gib EXAKT ein JSON-Objekt zurück: {"seo": Zahl (0-100), "perf": Zahl (0-100)}. Absolut kein anderer Text.`;
                     
                     const result = await model.generateContent(prompt);
                     const response = await result.response;
                     const text = response.text().trim();
                     
-                    // Robustes JSON-Parsing
-                    const cleanJson = text.replace(/```json|```/g, "").trim();
-                    const data = JSON.parse(cleanJson);
-
-                    document.getElementById('seoVal').innerText = data.seo || 0;
-                    document.getElementById('perfVal').innerText = data.perf || 0;
+                    // JSON Säuberung
+                    const jsonMatch = text.match(/\{[\s\S]*\}/);
+                    if (!jsonMatch) throw new Error("Kein valides JSON empfangen.");
                     
-                    addLog(`Handshake erfolgreich via ${mId}. Daten verarbeitet.`, "success");
-                    results.classList.remove('hidden');
-                    dot.className = "w-1.5 h-1.5 rounded-full bg-[#c8f135]";
-                    auditComplete = true;
+                    const data = JSON.parse(jsonMatch[0]);
+
+                    // UI Update
+                    document.getElementById('seoVal').innerText = data.seo;
+                    document.getElementById('perfVal').innerText = data.perf;
+                    document.getElementById('results').classList.remove('hidden');
+                    
+                    log(`Erfolgreich! Daten über ${modelId} empfangen.`, "success");
+                    pulse.className = "w-2 h-2 rounded-full bg-[#c8f135]";
+                    auditSuccessful = true;
 
                 } catch (err) {
-                    addLog(`Modell ${mId} fehlgeschlagen: ${err.message}`, "error");
-                    if (err.message.includes("API_KEY_INVALID") || err.message.includes("403")) {
-                        addLog("KRITISCH: API-Key ist ungültig oder nicht autorisiert.", "error");
-                        break; 
+                    const errMsg = err.message || "";
+                    if (errMsg.includes("429")) {
+                        log(`${modelId}: Limit erreicht (Quota Exceeded).`, "warn");
+                    } else if (errMsg.includes("404")) {
+                        log(`${modelId}: Modell nicht verfügbar (404).`, "error");
+                    } else if (errMsg.includes("API_KEY_INVALID")) {
+                        log("KRITISCH: API-Key ist ungültig.", "error");
+                        break;
+                    } else {
+                        log(`Fehler bei ${modelId}: ${errMsg.substring(0, 40)}...`, "error");
                     }
                 }
             }
 
-            if (!auditComplete) {
-                addLog("SYSTEMFEHLER: Alle Verbindungsversuche fehlgeschlagen.", "error");
-                dot.className = "w-1.5 h-1.5 rounded-full bg-red-600";
+            if (!auditSuccessful) {
+                log("ABBRUCH: Alle Modelle sind blockiert oder überlastet.", "error");
+                pulse.className = "w-2 h-2 rounded-full bg-red-600";
             }
 
             btn.disabled = false;
-            btn.innerHTML = 'EXECUTE AUDIT';
+            btn.innerHTML = 'START ANALYSIS';
         }
 
-        window.startProcess = startProcess;
+        window.initAudit = initAudit;
     </script>
 </body>
 </html>
