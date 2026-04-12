@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AuditFlow Widget</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = { theme: { extend: { colors: { void: '#030303', lime: '#c8f135' } } } };
+  </script>
+</head>
+<body class="bg-void text-zinc-200 font-sans antialiased p-4 min-h-[280px]">
+  <div class="rounded-xl border border-zinc-800 bg-zinc-900/80 p-4 max-w-md mx-auto">
+    <p class="text-[10px] font-mono text-lime uppercase tracking-widest mb-2">Free site check</p>
+    <input id="wUrl" type="url" placeholder="https://yoursite.com" class="w-full rounded-lg border border-zinc-700 bg-void px-3 py-2 text-sm text-white mb-2" />
+    <button type="button" id="wGo" class="w-full rounded-lg bg-lime text-void font-semibold text-sm py-2 hover:brightness-95">Run quick audit</button>
+    <pre id="wOut" class="mt-3 text-[10px] font-mono text-zinc-400 whitespace-pre-wrap hidden"></pre>
+    <p class="mt-3 text-center text-[10px] text-zinc-600">Powered by <span class="text-lime">AuditFlow</span></p>
+  </div>
+  <script>
+    document.getElementById('wGo').onclick = async () => {
+      const url = document.getElementById('wUrl').value.trim();
+      const out = document.getElementById('wOut');
+      if (!url) return;
+      out.classList.remove('hidden');
+      out.textContent = 'Loading…';
+      try {
+        const bridge = `https://api.allorigins.win/get?url=${encodeURIComponent(url)}`;
+        const r = await fetch(bridge);
+        const j = await r.json();
+        const html = j.contents || '';
+        const code = j.status?.http_code ?? '—';
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+        const title = !!doc.querySelector('title')?.textContent?.trim();
+        const desc = !!([...doc.querySelectorAll('meta')].some(m => (m.getAttribute('name')||'').toLowerCase()==='description' && m.getAttribute('content')));
+        const h1 = !!doc.querySelector('h1');
+        let https = false;
+        try { https = new URL(url).protocol === 'https:'; } catch (_) {}
+        out.textContent = ['HTTP: ' + code, 'HTTPS: ' + (https ? 'yes' : 'no'), 'Title: ' + (title ? 'yes' : 'no'), 'Meta desc: ' + (desc ? 'yes' : 'no'), 'H1: ' + (h1 ? 'yes' : 'no')].join('\n');
+      } catch (e) {
+        out.textContent = 'Could not fetch. Try another URL.';
+      }
+    };
+  </script>
+</body>
+</html>
