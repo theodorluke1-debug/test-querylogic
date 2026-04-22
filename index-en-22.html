@@ -1,0 +1,769 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AuditFlow — Audit any website in 30 seconds</title>
+  <meta name="description" content="Technical SEO, performance & security audits. White-label PDF reports your clients will love. Built for agencies.">
+  <meta name="keywords" content="SEO audit, technical SEO, agency, white-label, Product Hunt, PDF report">
+  <link rel="canonical" href="https://auditflow.io/index-en.html">
+  <meta property="og:type" content="website">
+  <meta property="og:title" content="AuditFlow — White-label website audits for agencies">
+  <meta property="og:description" content="Audit any website in 30 seconds. Reports your clients will actually read.">
+  <meta property="og:url" content="https://auditflow.io/index-en.html">
+  <meta property="og:image" content="https://auditflow.io/og-image-placeholder.png">
+  <meta name="twitter:card" content="summary_large_image">
+  <link rel="icon" href="data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 32 32'%3E%3Crect fill='%23030303' width='32' height='32' rx='6'/%3E%3Cpath fill='%23c8f135' d='M8 22V10h4l2 8 2-8h4v12h-3v-7l-2 7h-2l-2-7v7z'/%3E%3C/svg%3E">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500;600&family=Playfair+Display:ital,wght@0,600;1,600&display=swap" rel="stylesheet">
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script src="https://unpkg.com/lucide@0.454.0/dist/umd/lucide.min.js"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: { void: '#030303', lime: '#c8f135', zinccard: '#18181b', line: '#27272a' },
+          fontFamily: { sans: ['Inter', 'system-ui', 'sans-serif'], mono: ['JetBrains Mono', 'monospace'], serif: ['Playfair Display', 'Georgia', 'serif'] },
+        },
+      },
+    };
+  </script>
+  <style>
+    html { scroll-behavior: smooth; }
+    body { background: #030303; }
+    #pageLoader { position: fixed; inset: 0; z-index: 9999; background: #030303; display: flex; align-items: center; justify-content: center; transition: opacity 0.4s ease; }
+    #pageLoader.fade-out { opacity: 0; pointer-events: none; }
+    .loader-ring { width: 44px; height: 44px; border: 3px solid #27272a; border-top-color: #c8f135; border-radius: 50%; animation: spin 0.75s linear infinite; }
+    @keyframes spin { to { transform: rotate(360deg); } }
+    .skeleton { background: linear-gradient(90deg, #18181b 25%, #27272a 50%, #18181b 75%); background-size: 200% 100%; animation: shimmer 1.4s infinite; border-radius: 8px; }
+    @keyframes shimmer { 0% { background-position: 200% 0; } 100% { background-position: -200% 0; } }
+    .audit-spinner { width: 20px; height: 20px; border: 2px solid #27272a; border-top-color: #c8f135; border-radius: 50%; animation: spin 0.75s linear infinite; display: inline-block; }
+    .lh-gauge-ring { transition: stroke-dashoffset 0.8s cubic-bezier(0.4,0,0.2,1); }
+    .lh-score-good { color: #0cce6b; } .lh-score-mid { color: #ffa400; } .lh-score-bad { color: #ff4e42; }
+    .lh-ring-good { stroke: #0cce6b; } .lh-ring-mid { stroke: #ffa400; } .lh-ring-bad { stroke: #ff4e42; }
+    .hero-glow { background: radial-gradient(ellipse 80% 50% at 50% -20%, rgba(200, 241, 53, 0.14), transparent 55%); }
+    .view { display: none; opacity: 0; transition: opacity 0.35s ease; }
+    .view.active { display: block; opacity: 1; }
+    .card-hover { transition: transform 0.25s ease, border-color 0.25s ease, box-shadow 0.25s ease; }
+    .card-hover:hover { transform: translateY(-2px); border-color: #3f3f46; box-shadow: 0 24px 48px -24px rgba(0,0,0,0.9), 0 0 0 1px rgba(200,241,53,0.06); }
+    .noise { pointer-events: none; opacity: 0.04; position: fixed; inset: 0; z-index: 0;
+      background-image: url("data:image/svg+xml,%3Csvg viewBox='0 0 256 256' xmlns='http://www.w3.org/2000/svg'%3E%3Cfilter id='n'%3E%3CfeTurbulence type='fractalNoise' baseFrequency='0.85' numOctaves='4' stitchTiles='stitch'/%3E%3C/filter%3E%3Crect width='100%25' height='100%25' filter='url(%23n)'/%3E%3C/svg%3E"); }
+    #siteHeader { transition: padding 0.25s ease, box-shadow 0.25s ease; }
+    #siteHeader.is-compact .hdr-inner { height: 3.25rem; }
+    #siteHeader.is-compact .logo-text { font-size: 1rem; }
+    @media print {
+      .no-print { display: none !important; }
+      body { background: #fff !important; color: #111 !important; }
+    }
+    .auth-modal-card { box-shadow: 0 40px 100px -40px rgba(0,0,0,0.95), 0 0 0 1px rgba(200,241,53,0.08); }
+    .browser-chrome { background: linear-gradient(180deg, #1a1a1c 0%, #121214 100%); }
+  </style>
+</head>
+<body class="text-zinc-200 font-sans antialiased min-h-screen relative">
+  <div id="pageLoader"><div class="loader-ring"></div></div>
+  <div class="noise" aria-hidden="true"></div>
+
+  <header id="siteHeader" class="no-print fixed top-0 left-0 right-0 z-50 border-b border-zinc-800/80 bg-void/85 backdrop-blur-2xl">
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 hdr-inner flex items-center justify-between gap-4 transition-[height] duration-200 h-14 sm:h-16">
+      <button type="button" id="navLogo" class="flex items-center gap-2 text-left group">
+        <span class="logo-text font-bold text-lg tracking-tight text-white transition-all">Audit<span class="text-lime">Flow</span></span>
+        <span class="hidden sm:inline text-[10px] font-mono text-zinc-500 uppercase tracking-[0.2em] border border-zinc-800 rounded px-2 py-0.5">B2B</span>
+      </button>
+      <nav class="flex items-center gap-2 sm:gap-3 flex-wrap justify-end">
+        <div class="flex rounded-lg border border-zinc-800 overflow-hidden text-xs font-mono mr-1">
+          <a href="index.html" class="px-2 py-1 text-zinc-400 hover:text-white transition">DE</a>
+          <span class="px-2 py-1 bg-zinc-800 text-lime">EN</span>
+        </div>
+        <button type="button" data-nav="landing" class="nav-landing-only text-sm text-zinc-400 hover:text-white transition">Product</button>
+        <button type="button" data-nav="pricing" class="nav-landing-only text-sm text-zinc-400 hover:text-white transition">Pricing</button>
+        <button type="button" data-nav="faq" class="nav-landing-only text-sm text-zinc-400 hover:text-white transition">FAQ</button>
+        <button type="button" data-nav="about" class="nav-landing-only text-sm text-zinc-400 hover:text-white transition">About me</button>
+        <span id="navUserEmail" class="nav-dash-only hidden text-xs font-mono text-zinc-500 max-w-[140px] truncate"></span>
+        <button type="button" id="btnNavDashboard" class="nav-dash-only hidden text-sm font-medium text-lime hover:underline">Dashboard</button>
+        <button type="button" id="btnNavAuth" class="text-sm font-medium text-zinc-300 hover:text-white transition px-3 py-1.5 rounded-lg border border-zinc-800 hover:border-zinc-600">Log in</button>
+        <button type="button" id="btnNavCta" class="text-sm font-semibold bg-lime text-void px-4 py-2 rounded-lg hover:brightness-95 active:scale-[0.98] transition shadow-[0_0_24px_-6px_rgba(200,241,53,0.45)]">Start auditing</button>
+        <button type="button" id="btnNavSignOut" class="hidden text-sm text-zinc-500 hover:text-white transition px-2">Log out</button>
+      </nav>
+    </div>
+  </header>
+
+  <section id="view-landing" class="view active pt-14 sm:pt-16 relative z-10">
+    <div class="hero-glow min-h-[88vh] flex flex-col">
+      <div class="max-w-6xl mx-auto px-4 sm:px-6 pt-16 sm:pt-20 pb-12 flex-1 flex flex-col justify-center">
+        <p class="font-mono text-lime/90 text-xs sm:text-sm uppercase tracking-[0.28em] mb-6">Technical Web Intelligence</p>
+        <h1 class="text-[2.1rem] leading-[1.08] sm:text-5xl md:text-6xl lg:text-7xl font-semibold text-white tracking-tight max-w-4xl">
+          Audit any website in 30 seconds. <em class="not-italic text-lime font-normal">White-label reports your clients will love.</em>
+        </h1>
+        <p class="mt-8 text-lg sm:text-xl text-zinc-400 max-w-2xl leading-relaxed font-light">
+          Deep technical audit: SEO signals, performance load, security headers — one polished report you can hand to clients as-is.
+        </p>
+        <div class="mt-10 flex flex-col sm:flex-row gap-4">
+          <button type="button" data-open-auth class="inline-flex items-center justify-center gap-2 rounded-xl bg-lime text-void px-8 py-4 text-base font-semibold hover:brightness-95 transition shadow-[0_0_40px_-8px_rgba(200,241,53,0.5)]">
+            <i data-lucide="zap" class="w-5 h-5"></i>
+            Start free audit
+          </button>
+          <a href="#features" class="inline-flex items-center justify-center gap-2 rounded-xl border border-zinc-700 px-8 py-4 text-base font-medium text-white hover:bg-zinc-900/50 transition no-underline">
+            <i data-lucide="layers" class="w-5 h-5 text-zinc-400"></i>
+            Features
+          </a>
+          <a href="sample-report.html" target="_blank" rel="noopener" class="inline-flex items-center justify-center gap-2 rounded-xl border border-zinc-700 px-8 py-4 text-base font-medium text-zinc-300 hover:bg-zinc-900/50 transition no-underline">
+            <i data-lucide="file-text" class="w-5 h-5 text-zinc-400"></i>
+            Sample report
+          </a>
+        </div>
+
+        <!-- Browser mockup + animation -->
+        <div class="mt-14 w-full max-w-3xl">
+          <div class="rounded-t-xl border border-zinc-700 browser-chrome px-3 py-2 flex items-center gap-2">
+            <div class="flex gap-1.5">
+              <span class="w-2.5 h-2.5 rounded-full bg-red-500/80"></span>
+              <span class="w-2.5 h-2.5 rounded-full bg-amber-400/80"></span>
+              <span class="w-2.5 h-2.5 rounded-full bg-emerald-500/80"></span>
+            </div>
+            <div class="flex-1 mx-2 rounded-md bg-void/80 border border-zinc-800 px-3 py-1 text-[11px] font-mono text-zinc-500 truncate">
+              <span id="animUrl" class="text-zinc-300"></span>
+            </div>
+          </div>
+          <div class="rounded-b-xl border border-t-0 border-zinc-700 bg-zinccard p-5 sm:p-6">
+            <p id="animStatus" class="text-xs font-mono text-lime mb-4">…</p>
+            <div id="animGrid" class="grid grid-cols-3 gap-2 opacity-0 transition-opacity duration-500">
+              <div class="rounded-lg bg-void border border-zinc-800 p-3 text-center"><p class="text-[10px] text-zinc-500">SEO</p><p class="text-lg font-mono text-lime">84</p></div>
+              <div class="rounded-lg bg-void border border-zinc-800 p-3 text-center"><p class="text-[10px] text-zinc-500">Perf</p><p class="text-lg font-mono text-lime">79</p></div>
+              <div class="rounded-lg bg-void border border-zinc-800 p-3 text-center"><p class="text-[10px] text-zinc-500">Sec</p><p class="text-lg font-mono text-lime">92</p></div>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="demo-audit" class="max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-20 scroll-mt-24 border-t border-zinc-900">
+      <p class="font-mono text-lime text-xs uppercase tracking-[0.25em] mb-3">// Live demo</p>
+      <h2 class="text-2xl sm:text-3xl font-semibold text-white tracking-tight mb-2">Public quick check</h2>
+      <p class="text-zinc-400 text-sm max-w-xl mb-6">No login required — mini technical fetch (CORS-friendly sites or proxy).</p>
+      <div class="flex flex-col sm:flex-row gap-3 max-w-2xl">
+        <input id="demoUrl" type="url" placeholder="https://example.com" class="flex-1 rounded-xl border border-zinc-700 bg-zinccard px-4 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-lime/25 font-mono" />
+        <button type="button" id="btnDemoStart" class="rounded-xl bg-lime text-void px-6 py-3 text-sm font-semibold hover:brightness-95 shrink-0">Run demo</button>
+      </div>
+      <p id="demoError" class="text-sm text-red-400 mt-3 hidden"></p>
+      <div id="demoResults" class="mt-8"></div>
+    </div>
+
+    <div id="features" class="max-w-6xl mx-auto px-4 sm:px-6 py-20 sm:py-28 scroll-mt-24">
+      <p class="font-mono text-lime text-xs uppercase tracking-[0.25em] mb-4">// Deep protocol</p>
+      <h2 class="text-3xl sm:text-4xl md:text-5xl font-semibold text-white tracking-tight mb-4">Everything a <em class="not-italic text-zinc-500">shallow</em> scanner skips.</h2>
+      <p class="text-zinc-400 text-lg max-w-2xl mb-12 leading-relaxed">Built like a real audit pipeline — for recurring client reports and retainers.</p>
+      <div class="grid sm:grid-cols-2 lg:grid-cols-3 gap-5">
+        <article class="rounded-2xl border border-zinc-800 bg-zinccard p-6 card-hover">
+          <i data-lucide="git-compare" class="w-8 h-8 text-lime mb-4"></i>
+          <h3 class="text-lg font-semibold text-white mb-2">Competitive benchmarking</h3>
+          <p class="text-sm text-zinc-400 leading-relaxed">Two URLs in the dashboard: your site vs. a competitor — scores and dimensions side by side.</p>
+        </article>
+        <article class="rounded-2xl border border-zinc-800 bg-zinccard p-6 card-hover">
+          <i data-lucide="list-checks" class="w-8 h-8 text-lime mb-4"></i>
+          <h3 class="text-lg font-semibold text-white mb-2">Action items</h3>
+          <p class="text-sm text-zinc-400 leading-relaxed">Auto-generated checklist with severity — readable for clients without raw scores.</p>
+        </article>
+        <article class="rounded-2xl border border-zinc-800 bg-zinccard p-6 card-hover">
+          <i data-lucide="code-2" class="w-8 h-8 text-lime mb-4"></i>
+          <h3 class="text-lg font-semibold text-white mb-2">Lead-magnet widget</h3>
+          <p class="text-sm text-zinc-400 leading-relaxed">Iframe snippet for your site: visitors run a quick check — you stay the brand in the loop.</p>
+        </article>
+        <article class="rounded-2xl border border-zinc-800 bg-zinccard p-6 card-hover">
+          <i data-lucide="search" class="w-8 h-8 text-lime mb-4"></i>
+          <h3 class="text-lg font-semibold text-white mb-2">SEO depth</h3>
+          <p class="text-sm text-zinc-400 leading-relaxed">Canonical, meta, robots.txt, sitemap reachability, keyword signals.</p>
+        </article>
+        <article class="rounded-2xl border border-zinc-800 bg-zinccard p-6 card-hover">
+          <i data-lucide="gauge" class="w-8 h-8 text-lime mb-4"></i>
+          <h3 class="text-lg font-semibold text-white mb-2">Performance forensics</h3>
+          <p class="text-sm text-zinc-400 leading-relaxed">Render-blocking, CSS weight, image signals, HTML weight.</p>
+        </article>
+        <article class="rounded-2xl border border-zinc-800 bg-zinccard p-6 card-hover">
+          <i data-lucide="file-output" class="w-8 h-8 text-lime mb-4"></i>
+          <h3 class="text-lg font-semibold text-white mb-2">PDF “wow”</h3>
+          <p class="text-sm text-zinc-400 leading-relaxed">Export with cover page, mini table of contents, and glossary — not a browser printout.</p>
+        </article>
+      </div>
+    </div>
+
+    <!-- Compatibility & CORS -->
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 py-20 sm:py-28 scroll-mt-24">
+      <p class="font-mono text-lime text-xs uppercase tracking-[0.25em] mb-4">// Compatibility</p>
+      <h2 class="text-3xl sm:text-4xl md:text-5xl font-semibold text-white tracking-tight mb-4">What AuditFlow can analyze</h2>
+      <p class="text-zinc-400 text-lg max-w-2xl mb-12 leading-relaxed">Transparency about capabilities and limitations — so you know what works.</p>
+      
+      <div class="grid lg:grid-cols-2 gap-8">
+        <!-- What works -->
+        <div class="rounded-2xl border border-emerald-900/50 bg-emerald-950/20 p-8">
+          <div class="flex items-center gap-3 mb-6">
+            <i data-lucide="check-circle-2" class="w-6 h-6 text-emerald-400"></i>
+            <h3 class="text-xl font-semibold text-white">Works ✅</h3>
+          </div>
+          <ul class="space-y-3 text-sm text-zinc-300">
+            <li class="flex gap-2"><span class="text-emerald-400 font-bold">•</span> Regular websites (WordPress, Squarespace, Wix)</li>
+            <li class="flex gap-2"><span class="text-emerald-400 font-bold">•</span> E-commerce shops (Shopify, WooCommerce)</li>
+            <li class="flex gap-2"><span class="text-emerald-400 font-bold">•</span> SaaS products (public pages)</li>
+            <li class="flex gap-2"><span class="text-emerald-400 font-bold">•</span> Blogs, magazines & corporate websites</li>
+            <li class="flex gap-2"><span class="text-emerald-400 font-bold">•</span> Portfolio sites & landing pages</li>
+            <li class="flex gap-2"><span class="text-emerald-400 font-bold">•</span> GitHub Pages, Vercel, Netlify deployments</li>
+            <li class="flex gap-2"><span class="text-emerald-400 font-bold">•</span> <strong>Anything with a public URL</strong></li>
+          </ul>
+        </div>
+        
+        <!-- What doesn't work -->
+        <div class="rounded-2xl border border-red-900/50 bg-red-950/20 p-8">
+          <div class="flex items-center gap-3 mb-6">
+            <i data-lucide="x-circle" class="w-6 h-6 text-red-400"></i>
+            <h3 class="text-xl font-semibold text-white">Doesn't work ❌</h3>
+          </div>
+          <ul class="space-y-3 text-sm text-zinc-300">
+            <li class="flex gap-2"><span class="text-red-400 font-bold">•</span> Large platforms (Google, Amazon, Facebook, Instagram)</li>
+            <li class="flex gap-2"><span class="text-red-400 font-bold">•</span> Password-protected pages</li>
+            <li class="flex gap-2"><span class="text-red-400 font-bold">•</span> Intranet & local URLs (localhost, 192.168.x.x)</li>
+            <li class="flex gap-2"><span class="text-red-400 font-bold">•</span> Sites behind VPN</li>
+            <li class="flex gap-2"><span class="text-red-400 font-bold">•</span> Staging with Basic Auth</li>
+            <li class="flex gap-2"><span class="text-red-400 font-bold">•</span> <strong>CORS-blocked domains</strong></li>
+          </ul>
+        </div>
+      </div>
+      
+      <!-- CORS Workaround -->
+      <div class="mt-12 rounded-2xl border border-zinc-800 bg-zinccard p-8">
+        <div class="flex items-start gap-4">
+          <i data-lucide="lightbulb" class="w-6 h-6 text-lime flex-shrink-0 mt-1"></i>
+          <div>
+            <h3 class="text-lg font-semibold text-white mb-3">The CORS workaround: HTML fallback</h3>
+            <p class="text-zinc-400 mb-4">If a site blocks CORS, simply copy the HTML code and paste it into the dashboard. This solves the problem for ~80% of cases:</p>
+            <ol class="text-sm text-zinc-300 space-y-2 list-decimal list-inside">
+              <li>Open the site in your browser</li>
+              <li>Right-click → "View page source"</li>
+              <li>Copy the HTML code</li>
+              <li>Paste it into AuditFlow</li>
+              <li>Audit runs instantly — no CORS problem!</li>
+            </ol>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div class="border-t border-zinc-900 bg-black/30">
+      <div class="max-w-6xl mx-auto px-4 sm:px-6 py-16">
+        <p class="font-mono text-lime text-xs uppercase tracking-[0.25em] mb-3">// Embed</p>
+        <h2 class="text-2xl font-semibold text-white mb-2">Embed the lead magnet</h2>
+        <p class="text-sm text-zinc-400 mb-4 max-w-2xl">Copy the snippet — replace the domain with your production URL. “Powered by AuditFlow” in the widget.</p>
+        <textarea id="embedSnippet" readonly class="w-full max-w-3xl h-24 rounded-xl border border-zinc-800 bg-void px-3 py-2 text-xs font-mono text-zinc-400">&lt;iframe src=&quot;https://auditflow.io/embed.html&quot; title=&quot;AuditFlow&quot; width=&quot;100%&quot; height=&quot;320&quot; style=&quot;border:0;border-radius:12px&quot;&gt;&lt;/iframe&gt;
+&lt;!-- Local testing: src=&quot;./embed.html&quot; --&gt;</textarea>
+        <button type="button" id="btnEmbedCopy" class="mt-3 rounded-lg border border-zinc-700 px-4 py-2 text-sm hover:bg-zinc-800 transition">Copy snippet</button>
+      </div>
+    </div>
+
+    <div class="max-w-6xl mx-auto px-4 sm:px-6 py-20">
+      <p class="font-mono text-lime text-xs uppercase tracking-[0.25em] mb-6 text-center">Testimonials (placeholder)</p>
+      <div class="grid md:grid-cols-3 gap-6">
+        <figure class="rounded-2xl border border-zinc-800 bg-zinccard p-6 flex flex-col card-hover">
+          <blockquote class="text-sm text-zinc-300 leading-relaxed flex-1">“<span class="text-zinc-500">[Quote — why AuditFlow saves your team time.]</span>”</blockquote>
+          <figcaption class="mt-6 pt-4 border-t border-zinc-800">
+            <p class="font-semibold text-white">[Name]</p>
+            <p class="text-xs text-zinc-500">[Role] · <span class="text-zinc-400">[Company]</span></p>
+          </figcaption>
+        </figure>
+        <figure class="rounded-2xl border border-zinc-800 bg-zinccard p-6 flex flex-col card-hover">
+          <blockquote class="text-sm text-zinc-300 leading-relaxed flex-1">“<span class="text-zinc-500">[Quote — faster than stitching Lighthouse screenshots for pitches.]</span>”</blockquote>
+          <figcaption class="mt-6 pt-4 border-t border-zinc-800">
+            <p class="font-semibold text-white">[Name]</p>
+            <p class="text-xs text-zinc-500">[Role] · <span class="text-zinc-400">[Company]</span></p>
+          </figcaption>
+        </figure>
+        <figure class="rounded-2xl border border-zinc-800 bg-zinccard p-6 flex flex-col card-hover">
+          <blockquote class="text-sm text-zinc-300 leading-relaxed flex-1">“<span class="text-zinc-500">[Quote — white-label PDFs clients actually open.]</span>”</blockquote>
+          <figcaption class="mt-6 pt-4 border-t border-zinc-800">
+            <p class="font-semibold text-white">[Name]</p>
+            <p class="text-xs text-zinc-500">[Role] · <span class="text-zinc-400">[Company]</span></p>
+          </figcaption>
+        </figure>
+      </div>
+    </div>
+
+    <div id="pricing" class="border-t border-zinc-900 bg-black/40 scroll-mt-24">
+      <div class="max-w-6xl mx-auto px-4 sm:px-6 py-24 sm:py-28">
+        <p class="font-mono text-lime text-xs uppercase tracking-[0.25em] mb-4">// Pricing</p>
+        <h2 class="text-3xl sm:text-4xl font-semibold text-white mb-4">Scales with you.</h2>
+        <p class="text-zinc-400 mb-12 max-w-xl">Stripe checkout links are placeholders — swap in your live payment URLs.</p>
+        <div class="grid md:grid-cols-3 gap-6">
+          <div class="rounded-2xl border border-zinc-800 bg-zinccard p-8 flex flex-col">
+            <p class="text-sm font-mono text-zinc-500 uppercase">Free</p>
+            <p class="mt-4 text-4xl font-bold text-white">€0</p>
+            <p class="text-sm text-zinc-500 mt-1">/ month</p>
+            <ul class="mt-8 space-y-3 text-sm text-zinc-400 flex-1">
+              <li class="flex gap-2"><i data-lucide="check" class="w-4 h-4 text-lime shrink-0"></i>5 audits</li>
+              <li class="flex gap-2"><i data-lucide="check" class="w-4 h-4 text-lime shrink-0"></i>Basic report</li>
+            </ul>
+            <a href="#demo-audit" class="mt-8 w-full py-3 rounded-xl border border-zinc-700 text-white font-medium hover:bg-zinc-800 transition text-center no-underline inline-flex items-center justify-center">Try demo</a>
+          </div>
+          <div class="rounded-2xl border-2 border-lime/40 bg-zinccard p-8 flex flex-col relative shadow-[0_0_60px_-20px_rgba(200,241,53,0.2)]">
+            <span class="absolute -top-3 left-1/2 -translate-x-1/2 text-[10px] font-mono uppercase tracking-wider bg-lime text-void px-3 py-1 rounded-full">Popular</span>
+            <p class="text-sm font-mono text-lime uppercase">Pro</p>
+            <p class="mt-4 text-4xl font-bold text-white">€49</p>
+            <p class="text-sm text-zinc-500 mt-1">/ month</p>
+            <ul class="mt-8 space-y-3 text-sm text-zinc-300 flex-1">
+              <li class="flex gap-2"><i data-lucide="check" class="w-4 h-4 text-lime shrink-0"></i>Unlimited audits</li>
+              <li class="flex gap-2"><i data-lucide="check" class="w-4 h-4 text-lime shrink-0"></i>White-label PDF</li>
+              <li class="flex gap-2"><i data-lucide="check" class="w-4 h-4 text-lime shrink-0"></i>Priority support</li>
+            </ul>
+            <a href="https://buy.stripe.com/placeholder-pro" target="_blank" rel="noopener noreferrer" class="mt-8 w-full py-3 rounded-xl bg-lime text-void font-semibold hover:brightness-95 transition text-center no-underline inline-flex items-center justify-center">Upgrade to Pro</a>
+          </div>
+          <div class="rounded-2xl border border-zinc-800 bg-zinccard p-8 flex flex-col relative overflow-visible">
+            <span class="absolute -top-2 right-4 text-[10px] font-bold uppercase tracking-wide bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2 py-1 rounded-md">🔥 Limited</span>
+            <span class="inline-flex w-fit text-[10px] font-mono uppercase tracking-wider bg-lime/15 text-lime border border-lime/30 px-2 py-1 rounded">AppSumo deal</span>
+            <p class="text-sm font-mono text-zinc-400 uppercase mt-3">LTD</p>
+            <p class="mt-4 text-4xl font-bold text-white">€99</p>
+            <p class="text-sm text-zinc-500 mt-1">one-time</p>
+            <ul class="mt-8 space-y-3 text-sm text-zinc-400 flex-1">
+              <li class="flex gap-2"><i data-lucide="check" class="w-4 h-4 text-lime shrink-0"></i>Everything in Pro — lifetime</li>
+              <li class="flex gap-2"><i data-lucide="check" class="w-4 h-4 text-lime shrink-0"></i>No monthly fee</li>
+            </ul>
+            <a href="https://buy.stripe.com/placeholder-ltd" target="_blank" rel="noopener noreferrer" class="mt-8 w-full py-3 rounded-xl border border-lime/50 text-lime font-semibold hover:bg-lime/10 transition text-center no-underline inline-flex items-center justify-center">Get AppSumo deal</a>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div id="faq" class="max-w-3xl mx-auto px-4 sm:px-6 py-20 scroll-mt-24 border-t border-zinc-900">
+      <p class="font-mono text-lime text-xs uppercase tracking-[0.25em] mb-4">// FAQ</p>
+      <h2 class="text-2xl sm:text-3xl font-semibold text-white mb-8">Frequently asked questions</h2>
+      <div class="space-y-2">
+        <div class="rounded-xl border border-zinc-800 bg-zinccard overflow-hidden">
+          <button type="button" class="w-full text-left px-5 py-4 flex justify-between items-center gap-4 text-sm font-medium text-white hover:bg-white/[0.02]" data-faq-toggle aria-expanded="false" aria-controls="faq-a1" id="faq-q1">Does it work on password-protected pages?</button>
+          <div id="faq-a1" class="hidden px-5 pb-4 text-sm text-zinc-400 leading-relaxed border-t border-zinc-800/80 pt-3">Public URLs and pasted HTML work out of the box. Logged-in or intranet pages need credentials or exported HTML from an authenticated session. For staging, use temporary basic auth or a static export.</div>
+        </div>
+        <div class="rounded-xl border border-zinc-800 bg-zinccard overflow-hidden">
+          <button type="button" class="w-full text-left px-5 py-4 flex justify-between items-center gap-4 text-sm font-medium text-white hover:bg-white/[0.02]" data-faq-toggle aria-expanded="false" aria-controls="faq-a2" id="faq-q2">How many audits can I run per month?</button>
+          <div id="faq-a2" class="hidden px-5 pb-4 text-sm text-zinc-400 leading-relaxed border-t border-zinc-800/80 pt-3">The Free plan includes 5 audits. Pro includes unlimited audits on a fair-use basis. If you need extreme automation volumes, contact us for enterprise terms.</div>
+        </div>
+        <div class="rounded-xl border border-zinc-800 bg-zinccard overflow-hidden">
+          <button type="button" class="w-full text-left px-5 py-4 flex justify-between items-center gap-4 text-sm font-medium text-white hover:bg-white/[0.02]" data-faq-toggle aria-expanded="false" aria-controls="faq-a3" id="faq-q3">What data is stored and where?</button>
+          <div id="faq-a3" class="hidden px-5 pb-4 text-sm text-zinc-400 leading-relaxed border-t border-zinc-800/80 pt-3">Accounts and saved audits live in Supabase (EU region configurable). Third-party keys (e.g. Gemini) stay in the browser when used locally. See our privacy policy for details.</div>
+        </div>
+        <div class="rounded-xl border border-zinc-800 bg-zinccard overflow-hidden">
+          <button type="button" class="w-full text-left px-5 py-4 flex justify-between items-center gap-4 text-sm font-medium text-white hover:bg-white/[0.02]" data-faq-toggle aria-expanded="false" aria-controls="faq-a4" id="faq-q4">Can I white-label the PDF reports?</button>
+          <div id="faq-a4" class="hidden px-5 pb-4 text-sm text-zinc-400 leading-relaxed border-t border-zinc-800/80 pt-3">Yes — from Pro onward you can use agency branding, cover pages, and glossary sections in PDF export and deliver reports as your own.</div>
+        </div>
+        <div class="rounded-xl border border-zinc-800 bg-zinccard overflow-hidden">
+          <button type="button" class="w-full text-left px-5 py-4 flex justify-between items-center gap-4 text-sm font-medium text-white hover:bg-white/[0.02]" data-faq-toggle aria-expanded="false" aria-controls="faq-a5" id="faq-q5">Do you offer refunds?</button>
+          <div id="faq-a5" class="hidden px-5 pb-4 text-sm text-zinc-400 leading-relaxed border-t border-zinc-800/80 pt-3"><strong class="text-zinc-200">Yes.</strong> 60-day money-back guarantee on paid plans — email support@auditflow.io and we will take care of it.</div>
+        </div>
+        <div class="rounded-xl border border-zinc-800 bg-zinccard overflow-hidden">
+          <button type="button" class="w-full text-left px-5 py-4 flex justify-between items-center gap-4 text-sm font-medium text-white hover:bg-white/[0.02]" data-faq-toggle aria-expanded="false" aria-controls="faq-a6" id="faq-q6">Is there an API?</button>
+          <div id="faq-a6" class="hidden px-5 pb-4 text-sm text-zinc-400 leading-relaxed border-t border-zinc-800/80 pt-3">A public REST API is on the roadmap; Pro customers can ask to be prioritized for early access. Until then: PDF export and dashboard history.</div>
+        </div>
+      </div>
+    </div>
+
+    <div id="contact" class="border-t border-zinc-900 bg-black/40 scroll-mt-24">
+      <div class="max-w-6xl mx-auto px-4 sm:px-6 py-16 sm:py-20 grid lg:grid-cols-2 gap-12">
+        <div>
+          <p class="font-mono text-lime text-xs uppercase tracking-[0.25em] mb-3">// Contact</p>
+          <h2 class="text-2xl font-semibold text-white mb-4">Support</h2>
+          <p class="text-sm text-zinc-400 mb-4">Email us directly — or use the form (replace the Formspree endpoint).</p>
+          <a href="mailto:support@auditflow.io" class="text-lime font-medium hover:underline">support@auditflow.io</a>
+        </div>
+        <form action="https://formspree.io/f/YOURCODE" method="POST" class="space-y-4 rounded-2xl border border-zinc-800 bg-zinccard p-6">
+          <input type="text" name="name" required placeholder="Name" class="w-full rounded-lg border border-zinc-700 bg-void px-4 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-lime/25" />
+          <input type="email" name="email" required placeholder="Email" class="w-full rounded-lg border border-zinc-700 bg-void px-4 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-lime/25" />
+          <textarea name="message" rows="4" required placeholder="Message" class="w-full rounded-lg border border-zinc-700 bg-void px-4 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-lime/25"></textarea>
+          <button type="submit" class="w-full rounded-xl bg-lime text-void font-semibold py-3 hover:brightness-95">Send</button>
+        </form>
+      </div>
+    </div>
+
+    <!-- ABOUT / FOUNDER SECTION -->
+    <div id="about" class="border-t border-zinc-900 scroll-mt-24">
+      <div class="max-w-6xl mx-auto px-4 sm:px-6 py-20 sm:py-28">
+        <p class="font-mono text-lime text-xs uppercase tracking-[0.25em] mb-4">// About the founder</p>
+        <div class="grid lg:grid-cols-2 gap-12 items-center">
+          <div>
+            <h2 class="text-3xl sm:text-4xl font-semibold text-white tracking-tight mb-6">
+              Built by a<br><em class="not-italic text-lime">15-year-old developer</em><br>from Frankfurt.
+            </h2>
+            <p class="text-zinc-400 leading-relaxed mb-5">
+              Hi, I'm <strong class="text-white">Theodor Luke</strong>. I'm 15 years old and I develop AuditFlow in Frankfurt am Main, Germany.
+            </p>
+            <p class="text-zinc-400 leading-relaxed mb-5">
+              I originally built AuditFlow to evaluate my own web projects with efficiency and precision. My goal was to create a tool that delivers technical audits in seconds — without manual effort.
+            </p>
+            <p class="text-zinc-400 leading-relaxed mb-8">
+              AuditFlow is a professional B2B product that is fully GDPR-compliant. It combines speed with technical depth to provide agencies and developers with real insights.
+            </p>
+            <div class="flex flex-wrap gap-3">
+              <a href="mailto:support@auditflow.io" class="inline-flex items-center gap-2 rounded-xl border border-zinc-700 px-5 py-2.5 text-sm text-zinc-300 hover:text-white hover:border-zinc-500 transition">
+                <i data-lucide="mail" class="w-4 h-4"></i> support@auditflow.io
+              </a>
+              <span class="inline-flex items-center gap-2 rounded-xl border border-zinc-800 bg-zinc-900/40 px-5 py-2.5 text-sm text-zinc-500">
+                <i data-lucide="map-pin" class="w-4 h-4"></i> Frankfurt am Main, DE
+              </span>
+            </div>
+          </div>
+          <div class="relative">
+            <div class="rounded-2xl border border-zinc-800 bg-zinccard p-8">
+              <div class="flex items-center gap-4 mb-6">
+                <div class="w-16 h-16 rounded-full bg-lime/10 border border-lime/20 flex items-center justify-center text-2xl font-bold text-lime">T</div>
+                <div>
+                  <p class="font-semibold text-white">Theodor Luke</p>
+                  <p class="text-sm text-zinc-500">Founder · AuditFlow</p>
+                  <p class="text-xs text-zinc-600 font-mono mt-0.5">15 years · Frankfurt</p>
+                </div>
+              </div>
+              <div class="space-y-3">
+                <div class="flex items-center gap-3 text-sm text-zinc-400">
+                  <i data-lucide="code-2" class="w-4 h-4 text-lime shrink-0"></i>
+                  HTML, CSS, JavaScript, Supabase
+                </div>
+                <div class="flex items-center gap-3 text-sm text-zinc-400">
+                  <i data-lucide="zap" class="w-4 h-4 text-lime shrink-0"></i>
+                  High-Performance Engine
+                </div>
+                <div class="flex items-center gap-3 text-sm text-zinc-400">
+                  <i data-lucide="calendar" class="w-4 h-4 text-lime shrink-0"></i>
+                  Launched 2026 — solo bootstrapped
+                </div>
+                <div class="flex items-center gap-3 text-sm text-zinc-400">
+                  <i data-lucide="shield-check" class="w-4 h-4 text-lime shrink-0"></i>
+                  GDPR-compliant · Data in EU
+                </div>
+              </div>
+              <div class="mt-6 pt-5 border-t border-zinc-800">
+                <p class="text-xs text-zinc-600 leading-relaxed italic">
+                  „I built AuditFlow to automate technical audits and combine highest quality with full data security."
+                </p>
+              </div>
+            </div>
+            <!-- Decorative badge -->
+            <div class="absolute -top-3 -right-3 bg-lime text-void text-[10px] font-bold px-3 py-1.5 rounded-full shadow-lg">15 years old 🎯</div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <footer class="border-t border-zinc-900 py-12 px-4">
+      <div class="max-w-6xl mx-auto flex flex-col gap-6 text-sm text-zinc-500">
+        <div class="flex flex-wrap gap-x-6 gap-y-2 justify-center sm:justify-start">
+          <a href="privacy.html" class="hover:text-lime transition">Privacy Policy</a>
+          <a href="terms.html" class="hover:text-lime transition">Terms of Service</a>
+          <a href="imprint.html" class="hover:text-lime transition">Imprint</a>
+        </div>
+        <div class="flex flex-col sm:flex-row items-center justify-between gap-4">
+          <span>© 2026 AuditFlow</span>
+          <span class="font-mono text-xs text-center sm:text-right">Technical web intelligence — built for agencies.</span>
+        </div>
+      </div>
+    </footer>
+  </section>
+
+  <section id="view-dashboard" class="view pt-20 sm:pt-24 pb-16 px-4 sm:px-6 relative z-10 max-w-6xl mx-auto no-print">
+    <div class="mb-10">
+      <p class="font-mono text-lime text-xs uppercase tracking-[0.25em] mb-2">Deep audit dashboard</p>
+      <h1 class="text-3xl sm:text-4xl font-semibold text-white tracking-tight">Technical audit</h1>
+      <p class="text-zinc-400 mt-2 text-sm sm:text-base max-w-2xl">Signed-in users only. Optional competitor URL for benchmarking.</p>
+    </div>
+    <div class="grid lg:grid-cols-[1fr_320px] gap-8">
+      <div class="space-y-6">
+        <div class="rounded-2xl border border-zinc-800 bg-zinccard p-5 sm:p-6 card-hover">
+          <label for="dashUrl" class="block text-xs font-medium text-zinc-300 mb-2">Target URL (your site)</label>
+          <input id="dashUrl" type="url" placeholder="https://client.com" class="w-full rounded-xl border border-zinc-700 bg-void px-4 py-3 text-sm font-mono text-white focus:outline-none focus:ring-2 focus:ring-lime/25 mb-4" />
+          <label for="dashUrlComp" class="block text-xs font-medium text-zinc-300 mb-2">Competitor URL <span class="text-zinc-600 font-normal">(optional)</span></label>
+          <input id="dashUrlComp" type="url" placeholder="https://competitor.com" class="w-full rounded-xl border border-zinc-700 bg-void px-4 py-3 text-sm font-mono text-white focus:outline-none focus:ring-2 focus:ring-lime/25" />
+          <div class="flex flex-col sm:flex-row gap-3 mt-4">
+            <button type="button" id="btnPerformAudit" class="flex-1 rounded-xl bg-lime text-void px-6 py-3 text-sm font-semibold hover:brightness-95 transition flex items-center justify-center gap-2">
+              <i data-lucide="radar" class="w-4 h-4"></i>
+              Run audit
+            </button>
+          </div>
+          <label for="dashHtml" class="block text-xs font-medium text-zinc-300 mt-4 mb-1">HTML fallback (optional)</label>
+          <textarea id="dashHtml" rows="3" class="w-full rounded-xl border border-zinc-700 bg-void px-3 py-2 text-xs font-mono text-zinc-300" placeholder="<html>… if CORS blocks fetch …"></textarea>
+        </div>
+        <div id="dashProgress" class="hidden rounded-2xl border border-zinc-800 bg-zinccard p-5">
+          <p class="text-xs font-mono text-lime mb-3" id="dashProgressLabel">…</p>
+          <ol id="dashProgressList" class="text-sm text-zinc-400 space-y-1.5"></ol>
+        </div>
+        <div id="dashResults" class="hidden space-y-6">
+          <div id="dashCompare" class="hidden rounded-2xl border border-lime/20 bg-lime/[0.04] p-5"></div>
+          <div class="grid sm:grid-cols-2 gap-4">
+            <div class="rounded-2xl border border-zinc-800 bg-zinccard p-6 flex flex-col items-center">
+              <p class="text-[10px] font-mono text-zinc-500 uppercase tracking-widest mb-2">Score</p>
+              <div id="dashGauge"></div>
+              <p id="dashBand" class="text-xs text-zinc-500 mt-2 text-center"></p>
+            </div>
+            <div class="rounded-2xl border border-zinc-800 bg-zinccard p-6">
+              <p class="text-[10px] font-mono text-zinc-500 uppercase tracking-widest mb-3">Dimensions</p>
+              <div id="dashDims" class="space-y-3"></div>
+            </div>
+          </div>
+          <div class="rounded-2xl border border-zinc-800 bg-zinccard p-5">
+            <p class="text-xs font-mono text-lime uppercase mb-3">Action checklist</p>
+            <ul id="dashActions" class="list-none space-y-0"></ul>
+          </div>
+          <div class="rounded-2xl border border-lime/20 bg-lime/[0.04] p-5">
+            <p class="text-xs font-mono text-lime uppercase mb-2">Priority Issues</p>
+            <ol id="dashPriority" class="list-decimal list-inside text-sm text-zinc-300 space-y-2"></ol>
+          </div>
+
+          <!-- PREMIUM: Core Web Vitals -->
+          <div class="rounded-2xl border border-zinc-800 bg-zinccard p-5">
+            <p class="text-xs font-mono text-lime uppercase mb-3">Core Web Vitals</p>
+            <div id="dashCoreWebVitals" class="grid grid-cols-2 gap-3 text-xs">
+              <div class="bg-void/40 rounded p-3">
+                <p class="text-zinc-500 text-[10px]">LCP</p>
+                <p class="text-lg font-bold text-zinc-400 mt-1">—</p>
+                <p class="text-[9px] text-zinc-600 mt-1">Largest Contentful Paint</p>
+              </div>
+              <div class="bg-void/40 rounded p-3">
+                <p class="text-zinc-500 text-[10px]">CLS</p>
+                <p class="text-lg font-bold text-zinc-400 mt-1">—</p>
+                <p class="text-[9px] text-zinc-600 mt-1">Cumulative Layout Shift</p>
+              </div>
+              <div class="bg-void/40 rounded p-3">
+                <p class="text-zinc-500 text-[10px]">FID</p>
+                <p class="text-lg font-bold text-zinc-400 mt-1">—</p>
+                <p class="text-[9px] text-zinc-600 mt-1">First Input Delay</p>
+              </div>
+              <div class="bg-void/40 rounded p-3">
+                <p class="text-zinc-500 text-[10px]">TTFB</p>
+                <p class="text-lg font-bold text-zinc-400 mt-1">—</p>
+                <p class="text-[9px] text-zinc-600 mt-1">Time to First Byte</p>
+              </div>
+            </div>
+          </div>
+
+          <!-- PREMIUM: Accessibility -->
+          <div class="rounded-2xl border border-zinc-800 bg-zinccard p-5">
+            <p class="text-xs font-mono text-lime uppercase mb-3">Accessibility (WCAG 2.1)</p>
+            <div id="dashAccessibility" class="text-center">
+              <div class="inline-flex items-center justify-center w-24 h-24 rounded-full bg-zinc-800 border border-zinc-700 mb-3">
+                <span class="text-3xl font-bold text-zinc-500">—</span>
+              </div>
+              <p class="text-xs text-zinc-400">Calculating…</p>
+            </div>
+          </div>
+
+          <!-- PREMIUM: Resources -->
+          <div class="rounded-2xl border border-zinc-800 bg-zinccard p-5">
+            <p class="text-xs font-mono text-lime uppercase mb-3">Resource Analysis</p>
+            <div id="dashResources" class="space-y-2 text-xs">
+              <div class="flex justify-between"><span class="text-zinc-400">Scripts:</span><span class="text-white font-mono">—</span></div>
+              <div class="flex justify-between"><span class="text-zinc-400">Stylesheets:</span><span class="text-white font-mono">—</span></div>
+              <div class="flex justify-between"><span class="text-zinc-400">Images:</span><span class="text-white font-mono">—</span></div>
+              <div class="flex justify-between"><span class="text-zinc-400">Fonts:</span><span class="text-white font-mono">—</span></div>
+              <div class="flex justify-between border-t border-zinc-800 pt-2 mt-2"><span class="text-zinc-300 font-semibold">Total:</span><span class="text-lime font-mono font-bold">—</span></div>
+            </div>
+          </div>
+
+          <div class="rounded-2xl border border-zinc-800 bg-zinccard overflow-hidden">
+            <button type="button" id="btnToggleDeep" class="w-full flex items-center justify-between px-5 py-4 text-left hover:bg-white/[0.02]">
+              <span class="text-sm font-medium text-white">Technical deep dive</span>
+              <i data-lucide="chevron-down" id="iconDeep" class="w-5 h-5 text-zinc-500"></i>
+            </button>
+            <div id="dashDeepBody" class="hidden border-t border-zinc-800 p-5 max-h-[560px] overflow-y-auto text-xs font-mono text-zinc-400"></div>
+          </div>
+          <div class="flex flex-wrap gap-3">
+            <button type="button" id="btnPrint" class="rounded-xl border border-zinc-700 px-4 py-2 text-sm hover:bg-zinc-800 transition">🖨️ Print</button>
+            <button type="button" id="btnPdfPremium" class="rounded-xl border border-lime/40 bg-lime/10 text-lime px-4 py-2 text-sm hover:bg-lime/15 transition font-semibold">📄 Premium PDF</button>
+            <button type="button" id="btnSaveAudit" class="rounded-xl border border-lime/40 bg-lime/10 text-lime px-4 py-2 text-sm hover:bg-lime/15 transition">💾 Save</button>
+          </div>
+          <p id="dashSaveMsg" class="text-xs font-mono text-zinc-500"></p>
+        </div>
+      </div>
+      <aside class="rounded-2xl border border-zinc-800 bg-zinccard p-5 h-fit lg:sticky lg:top-24">
+        <h3 class="text-xs font-semibold text-white uppercase tracking-wider mb-3">Recent audits</h3>
+        <ul id="dashHistory" class="text-[11px] font-mono text-zinc-500 space-y-2 max-h-64 overflow-y-auto"></ul>
+      </aside>
+    </div>
+  </section>
+
+  <!-- Auth modal -->
+  <div id="authModal" class="hidden fixed inset-0 z-[100] flex items-center justify-center p-4 sm:p-6" aria-hidden="true">
+    <div id="authModalBackdrop" class="absolute inset-0 bg-black/90 backdrop-blur-sm" aria-hidden="true"></div>
+    <div class="auth-modal-card relative w-full max-w-[440px] rounded-2xl border border-zinc-700/80 bg-[#141412] p-8 sm:p-10 shadow-2xl">
+      <button type="button" id="authModalClose" class="absolute top-4 right-4 p-2 rounded-lg text-zinc-500 hover:text-white hover:bg-zinc-800 transition" aria-label="Close">
+        <i data-lucide="x" class="w-5 h-5"></i>
+      </button>
+      <!-- Main view: Method selection -->
+      <div id="authViewMain">
+        <p class="font-bold text-lg tracking-tight text-white mb-8">Audit<span class="text-lime">Flow</span></p>
+        <h2 class="font-serif text-3xl sm:text-[2rem] leading-tight text-white tracking-tight mb-3">
+          How would you like to <em class="font-serif not-italic text-lime">sign in?</em>
+        </h2>
+        <p class="text-xs text-zinc-500 mb-8 leading-relaxed">Choose a method. Magic Link is passwordless, Email/Password requires a fixed account.</p>
+
+        <div class="space-y-3">
+          <!-- Option 1: Magic Link -->
+          <button type="button" id="btnSelectMagic" class="w-full p-4 rounded-xl border border-zinc-800 bg-void/40 hover:border-lime/40 hover:bg-lime/5 transition text-left group">
+            <div class="flex items-center gap-4">
+              <div class="w-10 h-10 rounded-lg bg-lime/10 flex items-center justify-center text-lime group-hover:scale-110 transition">
+                <i data-lucide="wand-2" class="w-5 h-5"></i>
+              </div>
+              <div>
+                <p class="text-sm font-semibold text-white">Magic Link (Passwordless)</p>
+                <p class="text-[11px] text-zinc-500">One-time link via email — no password needed.</p>
+              </div>
+            </div>
+          </button>
+
+          <!-- Option 2: Password -->
+          <button type="button" id="btnSelectPass" class="w-full p-4 rounded-xl border border-zinc-800 bg-void/40 hover:border-zinc-600 hover:bg-zinc-800/40 transition text-left group">
+            <div class="flex items-center gap-4">
+              <div class="w-10 h-10 rounded-lg bg-zinc-800 flex items-center justify-center text-zinc-400 group-hover:scale-110 transition">
+                <i data-lucide="key-round" class="w-5 h-5"></i>
+              </div>
+              <div>
+                <p class="text-sm font-semibold text-white">Email & Password</p>
+                <p class="text-[11px] text-zinc-500">Classic account with a fixed password.</p>
+              </div>
+            </div>
+          </button>
+        </div>
+
+        <p class="mt-8 text-[11px] text-zinc-600 text-center leading-relaxed">By signing in you agree to our <a href="terms.html" class="text-zinc-400 underline hover:text-lime">Terms</a> &amp; <a href="privacy.html" class="text-zinc-400 underline hover:text-lime">Privacy Policy</a>.</p>
+        <button type="button" id="authBack" class="mt-4 text-sm text-zinc-500 hover:text-white transition w-full text-center">← Back to homepage</button>
+      </div>
+
+      <!-- View: Magic Link Form -->
+      <div id="authViewMagic" class="hidden">
+        <button type="button" class="btnAuthBackToSelection mb-6 text-xs text-zinc-500 hover:text-white flex items-center gap-1 transition">
+          <i data-lucide="chevron-left" class="w-3 h-3"></i> Back to selection
+        </button>
+        <h2 class="text-2xl font-semibold text-white mb-2">Magic Link</h2>
+        <p class="text-xs text-zinc-500 mb-6">We'll send you a link for instant login.</p>
+        <form id="formMagic" class="space-y-3">
+          <label class="block text-[11px] font-medium text-zinc-500" for="magicEmail">Email address</label>
+          <input id="magicEmail" name="magicEmail" type="email" autocomplete="email" class="w-full rounded-xl border border-zinc-700 bg-[#0c0c0b] px-4 py-3 text-sm text-white placeholder:text-zinc-600 focus:outline-none focus:ring-2 focus:ring-lime/25" placeholder="you@example.com" />
+          <button type="submit" id="btnMagicSubmit" class="w-full py-3.5 rounded-xl bg-lime text-void text-sm font-bold hover:brightness-95 transition flex items-center justify-center gap-2">
+            <span id="btnMagicText">Send link</span>
+            <span id="btnMagicSpinner" class="hidden audit-spinner" style="border-top-color:#030303"></span>
+          </button>
+        </form>
+        <p id="magicMsg" class="text-xs mt-4 hidden"></p>
+      </div>
+
+      <!-- View: Password Form -->
+      <div id="authViewPass" class="hidden">
+        <button type="button" class="btnAuthBackToSelection mb-6 text-xs text-zinc-500 hover:text-white flex items-center gap-1 transition">
+          <i data-lucide="chevron-left" class="w-3 h-3"></i> Back to selection
+        </button>
+        <div class="flex rounded-lg border border-zinc-800 p-1 mb-6">
+          <button type="button" id="tabSignIn" class="flex-1 py-2.5 text-sm font-medium rounded-md bg-zinc-800 text-white transition">Sign in</button>
+          <button type="button" id="tabSignUp" class="flex-1 py-2.5 text-sm font-medium rounded-md text-zinc-400 hover:text-white transition">Sign up</button>
+        </div>
+        <form id="formSignIn" class="space-y-4">
+          <div>
+            <label class="block text-[11px] font-medium text-zinc-500 mb-1.5" for="inEmail">Email</label>
+            <input id="inEmail" type="email" required autocomplete="email" class="w-full rounded-xl border border-zinc-700 bg-[#0c0c0b] px-4 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-lime/30" placeholder="you@agency.com" />
+          </div>
+          <div>
+            <label class="block text-[11px] font-medium text-zinc-500 mb-1.5" for="inPass">Password</label>
+            <input id="inPass" type="password" required autocomplete="current-password" class="w-full rounded-xl border border-zinc-700 bg-[#0c0c0b] px-4 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-lime/30" placeholder="••••••••" />
+          </div>
+          <p id="authError" class="text-sm text-red-400 hidden"></p>
+          <button type="submit" class="w-full py-3.5 rounded-xl bg-lime text-void font-semibold hover:brightness-95 transition">Sign in</button>
+        </form>
+        <form id="formSignUp" class="space-y-4 hidden">
+          <div>
+            <label class="block text-[11px] font-medium text-zinc-500 mb-1.5" for="upEmail">Email</label>
+            <input id="upEmail" type="email" required autocomplete="email" class="w-full rounded-xl border border-zinc-700 bg-[#0c0c0b] px-4 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-lime/30" placeholder="you@agency.com" />
+          </div>
+          <div>
+            <label class="block text-[11px] font-medium text-zinc-500 mb-1.5" for="upPass">Password (min. 8 characters)</label>
+            <input id="upPass" type="password" required autocomplete="new-password" minlength="8" class="w-full rounded-xl border border-zinc-700 bg-[#0c0c0b] px-4 py-3 text-sm text-white focus:outline-none focus:ring-2 focus:ring-lime/30" placeholder="••••••••" />
+          </div>
+          <p id="authErrorUp" class="text-sm text-red-400 hidden"></p>
+          <button type="submit" class="w-full py-3.5 rounded-xl bg-lime text-void font-semibold hover:brightness-95 transition">Create account</button>
+        </form>
+      </div>
+      <!-- Confirmation view after magic link sent -->
+      <div id="authViewConfirm" class="hidden text-center py-4">
+        <div class="w-16 h-16 rounded-full bg-lime/10 border border-lime/30 flex items-center justify-center mx-auto mb-6">
+          <i data-lucide="mail-check" class="w-8 h-8 text-lime"></i>
+        </div>
+        <h2 class="text-2xl font-semibold text-white mb-3">Email sent!</h2>
+        <p class="text-sm text-zinc-400 leading-relaxed mb-2">We sent a magic link to <strong id="confirmEmail" class="text-white"></strong>.</p>
+        <p class="text-sm text-zinc-400 leading-relaxed mb-8">Click the link in the email — you'll be logged in automatically. <strong class="text-zinc-300">No password needed.</strong></p>
+        <div class="rounded-xl border border-zinc-800 bg-void/60 p-4 mb-6 text-left">
+          <p class="text-[11px] font-mono text-zinc-500 uppercase tracking-wider mb-2">Note</p>
+          <p class="text-xs text-zinc-400 leading-relaxed">The link is valid for <strong class="text-zinc-300">60 minutes</strong> and can only be used once. Check your spam folder if you don't see it.</p>
+        </div>
+        <button type="button" id="btnConfirmBack" class="w-full py-3 rounded-xl border border-zinc-700 text-sm text-zinc-400 hover:text-white hover:border-zinc-500 transition">Use a different email</button>
+      </div>
+    </div>
+  </div>
+
+  <button type="button" id="btnBackTop" class="no-print fixed bottom-6 right-6 z-40 rounded-full border border-zinc-700 bg-zinccard/95 p-3 text-lime shadow-xl opacity-0 pointer-events-none transition-opacity hover:bg-zinc-800" aria-label="Back to top">
+    <i data-lucide="arrow-up" class="w-5 h-5"></i>
+  </button>
+
+  <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.49.1/dist/umd/supabase.min.js"></script>
+  <script src="auditflow.js"></script>
+  <!-- Upgrade Modal -->
+  <div id="upgradeModal" class="fixed inset-0 z-[999] hidden items-center justify-center bg-black/85 backdrop-blur-sm p-4" style="display:none;">
+    <div class="bg-zinccard border border-zinc-800 rounded-2xl p-8 max-w-lg w-full shadow-2xl relative">
+      <button onclick="document.getElementById('upgradeModal').style.display='none'" class="absolute top-4 right-4 text-zinc-500 hover:text-white transition">✕</button>
+      <div class="text-center mb-6">
+        <div class="w-14 h-14 rounded-full bg-lime/10 flex items-center justify-center mx-auto mb-4">
+          <i data-lucide="zap" class="w-7 h-7 text-lime"></i>
+        </div>
+        <h2 class="text-2xl font-bold text-white mb-2">Upgrade to Pro</h2>
+        <p class="text-sm text-zinc-400">Choose the plan that fits your needs.</p>
+      </div>
+      <div class="grid sm:grid-cols-2 gap-4">
+        <!-- Pro Monthly -->
+        <div class="rounded-xl border-2 border-lime/40 bg-black/40 p-5 flex flex-col">
+          <span class="text-xs font-mono text-lime uppercase tracking-wider mb-3">Pro Plan</span>
+          <p class="text-3xl font-bold text-white mb-1">€49</p>
+          <p class="text-xs text-zinc-500 mb-4">/ month · cancel anytime</p>
+          <ul class="space-y-2 text-sm text-zinc-300 flex-1 mb-5">
+            <li class="flex gap-2"><i data-lucide="check" class="w-4 h-4 text-lime shrink-0"></i>Unlimited audits</li>
+            <li class="flex gap-2"><i data-lucide="check" class="w-4 h-4 text-lime shrink-0"></i>White-label PDF</li>
+            <li class="flex gap-2"><i data-lucide="check" class="w-4 h-4 text-lime shrink-0"></i>Priority support</li>
+            <li class="flex gap-2"><i data-lucide="check" class="w-4 h-4 text-lime shrink-0"></i>60-day guarantee</li>
+          </ul>
+          <a href="https://buy.stripe.com/STRIPE_PRO_LINK_HERE" target="_blank" rel="noopener"
+            class="w-full py-3 rounded-xl bg-lime text-void font-bold text-sm hover:brightness-95 transition text-center block">
+            Start Pro →
+          </a>
+        </div>
+        <!-- LTD -->
+        <div class="rounded-xl border border-amber-500/30 bg-amber-500/5 p-5 flex flex-col relative overflow-hidden">
+          <span class="absolute top-3 right-3 text-[9px] font-bold bg-amber-500/20 text-amber-300 border border-amber-500/40 px-2 py-0.5 rounded">🔥 Limited</span>
+          <span class="text-xs font-mono text-amber-300 uppercase tracking-wider mb-3">Lifetime Deal</span>
+          <p class="text-3xl font-bold text-white mb-1">€99</p>
+          <p class="text-xs text-zinc-500 mb-4">one-time · forever</p>
+          <ul class="space-y-2 text-sm text-zinc-300 flex-1 mb-5">
+            <li class="flex gap-2"><i data-lucide="check" class="w-4 h-4 text-lime shrink-0"></i>Everything in Pro</li>
+            <li class="flex gap-2"><i data-lucide="check" class="w-4 h-4 text-lime shrink-0"></i>No monthly fee</li>
+            <li class="flex gap-2"><i data-lucide="check" class="w-4 h-4 text-lime shrink-0"></i>Lifetime updates</li>
+            <li class="flex gap-2"><i data-lucide="check" class="w-4 h-4 text-lime shrink-0"></i>60-day guarantee</li>
+          </ul>
+          <a href="https://buy.stripe.com/STRIPE_LTD_LINK_HERE" target="_blank" rel="noopener"
+            class="w-full py-3 rounded-xl border border-amber-400/50 text-amber-300 font-bold text-sm hover:bg-amber-400/10 transition text-center block">
+            Get LTD →
+          </a>
+        </div>
+      </div>
+      <p class="text-center text-xs text-zinc-600 mt-4">60-day money-back guarantee · No risk · <a href="mailto:support@auditflow.io" class="text-zinc-400 hover:text-lime">support@auditflow.io</a></p>
+    </div>
+  </div>
+  <script>
+    // Open upgrade modal when clicking upgrade buttons
+    document.addEventListener('DOMContentLoaded', function() {
+      const openModal = () => { document.getElementById('upgradeModal').style.display='flex'; if(window.lucide) lucide.createIcons(); };
+      document.getElementById('btnUpgradePro')?.addEventListener('click', function(e){ e.preventDefault(); openModal(); });
+      document.getElementById('btnUpgradeLtd')?.addEventListener('click', function(e){ e.preventDefault(); openModal(); });
+      // Close on backdrop
+      document.getElementById('upgradeModal')?.addEventListener('click', function(e){ if(e.target===this) this.style.display='none'; });
+      // About nav
+      document.querySelectorAll('[data-nav="about"]').forEach(b => b.addEventListener('click', () => {
+        document.getElementById('about')?.scrollIntoView({behavior:'smooth'});
+      }));
+    });
+  </script>
+</body>
+</html>
